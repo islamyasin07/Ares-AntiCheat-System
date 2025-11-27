@@ -15,13 +15,20 @@ object SparkStreamingApp {
     println("🔥 Spark Streaming App Started...")
 
     // -------------------------------------------------------------
-    // 1) Read from Kafka
+    // MongoDB CONFIG
+    // -------------------------------------------------------------
+    spark.conf.set("spark.mongodb.output.uri",
+      "mongodb://localhost:27017/ares_anticheat.suspicious"
+    )
+
+    // -------------------------------------------------------------
+    // 1) Read Kafka Stream
     // -------------------------------------------------------------
     val kafkaDF = spark.readStream
       .format("kafka")
       .option("kafka.bootstrap.servers", "localhost:9092")
       .option("subscribe", "player-events")
-      .option("startingOffsets", "earliest")
+      .option("startingOffsets", "latest")
       .load()
 
     val rawJson = kafkaDF.selectExpr("CAST(value AS STRING) as json")
@@ -39,35 +46,30 @@ object SparkStreamingApp {
       .add("isFlick", BooleanType)
 
     // -------------------------------------------------------------
-    // 3) Parse JSON → DataFrame
+    // 3) Parse JSON
     // -------------------------------------------------------------
     val parsedDF = rawJson
       .select(from_json(col("json"), schema).as("data"))
       .select("data.*")
 
     // -------------------------------------------------------------
-    // 4) Rule-Based Anomaly Detection
+    // 4) Rule-Based Detection
     // -------------------------------------------------------------
-
-    // Aimbot: unnatural high speed or high-speed flick
     val aimbotDF = parsedDF.filter(
       (col("speed") > 100) ||
       (col("isFlick") === true && col("speed") > 85)
     )
 
-    // No-Recoil: recoil almost zero
     val norecoilDF = parsedDF.filter(
       (abs(col("deltaY")) < 0.05) && (col("speed") > 40)
     )
 
-    // Robotic Movement: too little variation
     val roboticDF = parsedDF.filter(
       (abs(col("deltaX")) < 0.15) &&
       (abs(col("deltaY")) < 0.15) &&
       (col("speed") > 30)
     )
 
-    // Combine all suspicious events and label them
     val suspiciousDF = aimbotDF
       .union(norecoilDF)
       .union(roboticDF)
@@ -80,7 +82,7 @@ object SparkStreamingApp {
       )
 
     // -------------------------------------------------------------
-    // 5) Write Streams to Console
+    // 5) Write Normal Events to Console
     // -------------------------------------------------------------
     val query = parsedDF.writeStream
       .outputMode("append")
@@ -88,6 +90,9 @@ object SparkStreamingApp {
       .option("truncate", false)
       .start()
 
+    // -------------------------------------------------------------
+    // 6) Write Suspicious Events to Console
+    // -------------------------------------------------------------
     val suspiciousQuery = suspiciousDF.writeStream
       .outputMode("append")
       .format("console")
@@ -95,8 +100,19 @@ object SparkStreamingApp {
       .start()
 
     // -------------------------------------------------------------
-    // 6) Keep Streams Alive
+    // 7) Write Suspicious Events to MongoDB
     // -------------------------------------------------------------
-    spark.streams.awaitAnyTermination()
+    val mongoQuery = suspiciousDF.writeStream
+      .format("mongodb")                     // MongoDB Sink
+      .option("checkpointLocation", "checkpoint/mongo")
+      .outputMode("append")
+      .start()
+
+    // -------------------------------------------------------------
+    // 8) KEEP STREAMS ALIVE
+    // -------------------------------------------------------------
+    query.awaitTermination()
+    suspiciousQuery.awaitTermination()
+    mongoQuery.awaitTermination()
   }
 }

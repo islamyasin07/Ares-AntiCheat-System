@@ -1,0 +1,13 @@
+services:
+  ares-mongodb:
+    image: mongo:7.0
+    container_name: ares-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - ares_mongo_data:/data/db
+
+volumes:
+  ares_mongo_data:
+  
