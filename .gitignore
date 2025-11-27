@@ -1,3 +1,55 @@
+# Build outputs
+**/target/
+**/target/**
+
+# SBT / IntelliJ artifacts
+.idea/
+*.iml
+*.iws
+.classpath
+.project
+.settings/
+
+# Spark checkpoints and temp
+**/checkpoint/
+**/checkpoint/**
+checkpoint/
+
+# Scala / Java
+*.class
+*.jar
+*.war
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temp
+*.log
+/tmp/
+*.tmp
+
+# VS Code
+.vscode/
+
+# Docker compose local overrides
+docker-compose.override.yml
+
+# Misc
+node_modules/
+dist/
 # Python virtual environment
 .venv/
 .metals/
