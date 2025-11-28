@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   ares-anticheat:
     image: mongo:7.0
@@ -6,7 +8,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ares-anticheat:/data/db
+      - ares_anticheat_data:/data/db
 
 volumes:
-  ares-anticheat_data:
+  ares_anticheat_data:
