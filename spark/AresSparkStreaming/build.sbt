@@ -8,5 +8,6 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-sql" % "3.5.0",
   "org.apache.spark" %% "spark-streaming" % "3.5.0",
   "org.apache.spark" %% "spark-sql-kafka-0-10" % "3.5.0",
-  "org.mongodb" % "mongodb-driver-sync" % "4.11.1"
+  "org.mongodb" % "mongodb-driver-sync" % "4.11.1",
+  "com.typesafe" % "config" % "1.4.2"
 )
