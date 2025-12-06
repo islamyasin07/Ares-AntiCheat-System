@@ -4,6 +4,7 @@ import com.typesafe.config.ConfigFactory
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{Dataset, Row}
 import org.bson.Document
 import com.mongodb.client.MongoClients
 import scala.collection.JavaConverters._
@@ -136,6 +137,52 @@ object SparkStreamingApp {
     // -------------------------------------------------------------
     // 3) PRINT TABLE IN TERMINAL (formatted output)
     // -------------------------------------------------------------
+    def prettyPrintDF(df: Dataset[Row], maxRows: Int = 25): Unit = {
+      try {
+        val cols = df.columns
+        val rows = df.take(maxRows)
+
+        if (rows.isEmpty) {
+          println("[PrettyPrint] (no rows)")
+          return
+        }
+
+        // compute column widths
+        val colWidths = cols.indices.map { i =>
+          val headerLen = cols(i).length
+          val maxValLen = rows.map { r =>
+            val v = Option(r.get(i)).map(_.toString).getOrElse("null")
+            v.length
+          }.foldLeft(0)(Math.max)
+          Math.max(headerLen, maxValLen)
+        }
+
+        // helper to pad
+        def pad(s: String, w: Int) = if (s.length >= w) s else s + " " * (w - s.length)
+
+        // header
+        val header = cols.zip(colWidths).map { case (c, w) => pad(c, w) }.mkString(" | ")
+        val sep = colWidths.map(w => "-" * w).mkString("-+-")
+
+        println("\n[PrettyPrint] Suspicious Events (first " + rows.length + ")")
+        println(header)
+        println(sep)
+
+        rows.foreach { r =>
+          val line = cols.indices.map { i =>
+            val v = Option(r.get(i)).map(_.toString).getOrElse("null")
+            pad(v, colWidths(i))
+          }.mkString(" | ")
+          println(line)
+        }
+
+        if (rows.length == maxRows) println(s"... (showing first $maxRows rows)")
+        println()
+      } catch {
+        case e: Throwable => println(s"[PrettyPrint] Error printing rows: ${e.getMessage}")
+      }
+    }
+
     val consoleQuery = suspiciousDF
       .select(
         col("eventType"),
@@ -148,9 +195,12 @@ object SparkStreamingApp {
         col("cheatType")
       )
       .writeStream
-      .outputMode("append")
-      .format("console")
-      .option("truncate", false)
+      .foreachBatch { (batchDF: Dataset[Row], batchId: Long) =>
+        if (!batchDF.isEmpty) {
+          prettyPrintDF(batchDF, 25)
+        }
+      }
+      .option("checkpointLocation", "checkpoint/console")
       .start()
 
     spark.streams.awaitAnyTermination()
