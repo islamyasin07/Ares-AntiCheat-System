@@ -1,8 +1,13 @@
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SparkSession, Dataset, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
+import com.mongodb.client.MongoClients
+import org.bson.Document
+import scala.collection.JavaConverters._
+
 object SparkStreamingApp {
+
   def main(args: Array[String]): Unit = {
 
     val spark = SparkSession.builder()
@@ -11,18 +16,10 @@ object SparkStreamingApp {
       .getOrCreate()
 
     spark.sparkContext.setLogLevel("ERROR")
-
     println("🔥 Spark Streaming App Started...")
 
     // -------------------------------------------------------------
-    // MongoDB CONFIG
-    // -------------------------------------------------------------
-    spark.conf.set("spark.mongodb.output.uri",
-      "mongodb://localhost:27017/ares_anticheat.suspicious"
-    )
-
-    // -------------------------------------------------------------
-    // 1) Read Kafka Stream
+    // 1) Kafka Stream
     // -------------------------------------------------------------
     val kafkaDF = spark.readStream
       .format("kafka")
@@ -34,7 +31,7 @@ object SparkStreamingApp {
     val rawJson = kafkaDF.selectExpr("CAST(value AS STRING) as json")
 
     // -------------------------------------------------------------
-    // 2) Define Schema
+    // 2) Schema
     // -------------------------------------------------------------
     val schema = new StructType()
       .add("eventType", StringType)
@@ -45,29 +42,26 @@ object SparkStreamingApp {
       .add("speed", DoubleType)
       .add("isFlick", BooleanType)
 
-    // -------------------------------------------------------------
-    // 3) Parse JSON
-    // -------------------------------------------------------------
     val parsedDF = rawJson
       .select(from_json(col("json"), schema).as("data"))
       .select("data.*")
 
     // -------------------------------------------------------------
-    // 4) Rule-Based Detection
+    // 3) Detection Rules (Relaxed for testing)
     // -------------------------------------------------------------
     val aimbotDF = parsedDF.filter(
-      (col("speed") > 100) ||
-      (col("isFlick") === true && col("speed") > 85)
+      col("speed") > 50 ||
+      (col("isFlick") === true && col("speed") > 40)
     )
 
     val norecoilDF = parsedDF.filter(
-      (abs(col("deltaY")) < 0.05) && (col("speed") > 40)
+      abs(col("deltaY")) < 0.2 && col("speed") > 30
     )
 
     val roboticDF = parsedDF.filter(
-      (abs(col("deltaX")) < 0.15) &&
-      (abs(col("deltaY")) < 0.15) &&
-      (col("speed") > 30)
+      abs(col("deltaX")) < 0.3 &&
+      abs(col("deltaY")) < 0.3 &&
+      col("speed") > 25
     )
 
     val suspiciousDF = aimbotDF
@@ -75,44 +69,69 @@ object SparkStreamingApp {
       .union(roboticDF)
       .withColumn("cheatType",
         when(col("speed") > 100, "Aimbot-Speed")
-          .when(col("isFlick") === true && col("speed") > 85, "Aimbot-Flick")
+          .when(col("isFlick") && col("speed") > 85, "Aimbot-Flick")
           .when(abs(col("deltaY")) < 0.05 && col("speed") > 40, "No-Recoil")
           .when(abs(col("deltaX")) < 0.15 && abs(col("deltaY")) < 0.15 && col("speed") > 30, "Robotic-Aim")
           .otherwise("Unknown")
       )
 
     // -------------------------------------------------------------
-    // 5) Write Normal Events to Console
+    // 4) MongoDB Insert Function (Reusable)
     // -------------------------------------------------------------
-    val query = parsedDF.writeStream
-      .outputMode("append")
-      .format("console")
-      .option("truncate", false)
-      .start()
+    def writeToMongo(
+        df: Dataset[Row],
+        collectionName: String,
+        batchId: Long
+    ): Unit = {
+
+      if (df.isEmpty) return
+
+      val mongoUri = sys.env.getOrElse("MONGO_URI", "mongodb://localhost:27017")
+      println(s"Connecting to MongoDB -> $mongoUri, DB -> ares_anticheat, coll -> $collectionName (batch: $batchId)")
+      val client = MongoClients.create(mongoUri)
+      try {
+        val coll = client.getDatabase("ares_anticheat").getCollection(collectionName)
+
+          val docs = df.toJSON.collect().map(Document.parse).toList.asJava
+        if (!docs.isEmpty) {
+          coll.insertMany(docs)
+            println(s"✔️ Inserted ${docs.size()} documents → $collectionName (batch: $batchId)")
+        }
+      } catch {
+        case e: Exception =>
+          println(s"❌ MongoDB Error in $collectionName / batch $batchId: " + e.getMessage)
+      } finally {
+        client.close()
+      }
+    }
 
     // -------------------------------------------------------------
-    // 6) Write Suspicious Events to Console
+    // 5) Suspicious Events → MongoDB.suspicious
     // -------------------------------------------------------------
     val suspiciousQuery = suspiciousDF.writeStream
+  .foreachBatch { (batchDF: Dataset[Row], batchId: Long) =>
+    writeToMongo(batchDF, "suspicious", batchId)
+  }
+  .option("checkpointLocation", "checkpoint/suspicious")
+  .start()
+
+val allEventsQuery = parsedDF.writeStream
+  .foreachBatch { (batchDF: Dataset[Row], batchId: Long) =>
+    writeToMongo(batchDF, "events", batchId)
+  }
+  .option("checkpointLocation", "checkpoint/events")
+  .start()
+
+
+    // -------------------------------------------------------------
+    // 7) Console Output (nice for debugging)
+    // -------------------------------------------------------------
+    val consoleQuery = suspiciousDF.writeStream
       .outputMode("append")
       .format("console")
       .option("truncate", false)
       .start()
 
-    // -------------------------------------------------------------
-    // 7) Write Suspicious Events to MongoDB
-    // -------------------------------------------------------------
-    val mongoQuery = suspiciousDF.writeStream
-      .format("mongodb")                     // MongoDB Sink
-      .option("checkpointLocation", "checkpoint/mongo")
-      .outputMode("append")
-      .start()
-
-    // -------------------------------------------------------------
-    // 8) KEEP STREAMS ALIVE
-    // -------------------------------------------------------------
-    query.awaitTermination()
-    suspiciousQuery.awaitTermination()
-    mongoQuery.awaitTermination()
+    spark.streams.awaitAnyTermination()
   }
 }
