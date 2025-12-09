@@ -1,0 +1,68 @@
+<div class="space-y-8">
+
+  <ng-container *ngIf="stats$ | async as s">
+
+    <!-- TOP CARDS -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <app-stat-card title="Total Events" [value]="s.totalEvents" color="neonBlue"></app-stat-card>
+      <app-stat-card title="Suspicious Events" [value]="s.totalSuspicious" color="neonPink"></app-stat-card>
+      <app-stat-card title="Cheaters Today" [value]="s.cheatersToday" color="neonPurple"></app-stat-card>
+      <app-stat-card title="Live Players" [value]="s.livePlayers" color="softWhite"></app-stat-card>
+    </div>
+
+    <!-- LIVE FEED + LINE -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+      <app-glow-card class="h-[380px] flex flex-col">
+        <h2 class="text-xl mb-4 font-orbitron text-neonPink">
+          Live Suspicious Feed
+        </h2>
+
+        <app-live-feed-list
+          class="flex-1"
+          [events]="(liveFeed$ | async) ?? []">
+        </app-live-feed-list>
+      </app-glow-card>
+
+      <app-glow-card class="xl:col-span-2 h-[380px]">
+        <h2 class="text-xl mb-4 font-orbitron text-neonBlue">
+          Suspicious per Minute
+        </h2>
+
+        <app-ares-line-chart
+          [labels]="labels_perMinute"
+          [data]="data_perMinute">
+        </app-ares-line-chart>
+      </app-glow-card>
+
+    </div>
+
+    <!-- PIE + HEATMAP -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+      <app-glow-card>
+        <h2 class="text-xl mb-4 font-orbitron text-neonPurple">
+          Cheat Types Distribution
+        </h2>
+
+        <app-ares-pie-chart
+          [labels]="cheat_labels"
+          [data]="cheat_counts">
+        </app-ares-pie-chart>
+      </app-glow-card>
+
+      <app-glow-card class="xl:col-span-2">
+        <h2 class="text-xl mb-4 font-orbitron text-neonBlue">
+          Cheating Heatmap (Hour)
+        </h2>
+
+        <app-ares-heatmap
+          [values]="hourly_heatmap">
+        </app-ares-heatmap>
+      </app-glow-card>
+
+    </div>
+
+  </ng-container>
+
+</div>

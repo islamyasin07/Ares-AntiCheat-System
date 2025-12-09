@@ -1,0 +1,21 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+/* subtle CRT / noise texture */
+.noise-layer {
+  background-image: url('/assets/noise.png');
+  background-size: 260px 260px;
+  background-repeat: repeat;
+}
+.noise-layer {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.03;
+  z-index: 30;
+}

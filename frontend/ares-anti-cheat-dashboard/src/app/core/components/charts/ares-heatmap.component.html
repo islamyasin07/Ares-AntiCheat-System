@@ -1,0 +1,11 @@
+<div class="grid grid-cols-12 gap-1 text-[10px] text-softWhite/60">
+  <div *ngFor="let v of values; let i = index"
+       class="h-6 rounded-sm flex items-center justify-center"
+       [style.background]="
+         'linear-gradient(to top, rgba(59,199,255,' +
+         (0.15 + (v / max()) * 0.85) +
+         '), rgba(10,15,31,0.8))'
+       ">
+    {{ i }}
+  </div>
+</div>

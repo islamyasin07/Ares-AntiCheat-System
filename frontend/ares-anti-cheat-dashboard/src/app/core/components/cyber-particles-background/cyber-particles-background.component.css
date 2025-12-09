@@ -1,0 +1,27 @@
+.particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: #3BC7FF;
+  opacity: 0.25;
+  box-shadow:
+    0 0 8px rgba(59, 199, 255, 0.9),
+    0 0 18px rgba(10, 239, 255, 0.6);
+  animation: particle-float 7s infinite ease-in-out alternate;
+}
+
+@keyframes particle-float {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.15;
+  }
+  50% {
+    transform: translate3d(8px, -12px, 0);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(-6px, 6px, 0);
+    opacity: 0.25;
+  }
+}

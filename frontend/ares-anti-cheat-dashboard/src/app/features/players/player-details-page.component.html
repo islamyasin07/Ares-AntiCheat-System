@@ -1,0 +1,19 @@
+<div class="space-y-8">
+
+  <app-glow-card>
+    <h2 class="text-2xl font-orbitron text-neonBlue mb-4">
+      Player {{ playerId }}
+    </h2>
+
+    <section *ngIf="player$ | async as p">
+      <p class="text-softWhite mb-4">Risk Score: {{ p.riskScore }}/100</p>
+
+      <app-ares-radar-chart
+        [labels]="p.behaviorLabels"
+        [data]="p.behaviorValues">
+      </app-ares-radar-chart>
+
+    </section>
+  </app-glow-card>
+
+</div>

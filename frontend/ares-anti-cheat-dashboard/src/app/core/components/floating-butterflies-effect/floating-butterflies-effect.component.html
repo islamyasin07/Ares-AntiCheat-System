@@ -1,0 +1,11 @@
+<div class="absolute inset-0 overflow-hidden pointer-events-none z-20">
+  <div
+    *ngFor="let b of butterflies"
+    class="butterfly"
+    [style.left.%]="b.left"
+    [style.animation-delay.s]="b.delay"
+    [style.animation-duration.s]="b.duration"
+    [style.transform]="'scale(' + b.scale + ')'"
+    [style.filter]="'hue-rotate(' + b.hue + 'deg)'"
+  ></div>
+</div>

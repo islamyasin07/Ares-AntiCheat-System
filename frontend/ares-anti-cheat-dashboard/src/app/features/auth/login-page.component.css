@@ -1,0 +1,19 @@
+/* neon glow animation */
+@keyframes neonGlow {
+  0%, 100% {
+    text-shadow:
+      0 0 5px #3BC7FF,
+      0 0 10px #3BC7FF,
+      0 0 20px #3BC7FF,
+      0 0 40px #3BC7FF,
+      0 0 80px #3BC7FF;
+  }
+  50% {
+    text-shadow:
+      0 0 10px #3BC7FF,
+      0 0 20px #3BC7FF,
+      0 0 30px #3BC7FF,
+      0 0 50px #3BC7FF,
+      0 0 100px #3BC7FF;
+  }
+}

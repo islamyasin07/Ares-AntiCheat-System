@@ -1,0 +1,25 @@
+<table class="w-full text-softWhite">
+  <thead>
+    <tr class="text-neonBlue">
+      <th>ID</th>
+      <th>Player</th>
+      <th>Type</th>
+      <th>ΔX</th>
+      <th>ΔY</th>
+      <th>Speed</th>
+      <th>Time</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr *ngFor="let e of suspicious$ | async">
+      <td>{{ e.eventId }}</td>
+      <td>{{ e.playerId }}</td>
+      <td>{{ e.cheatType }}</td>
+      <td>{{ e.deltaX }}</td>
+      <td>{{ e.deltaY }}</td>
+      <td>{{ e.speed }}</td>
+      <td>{{ e.timestamp }}</td>
+    </tr>
+  </tbody>
+</table>

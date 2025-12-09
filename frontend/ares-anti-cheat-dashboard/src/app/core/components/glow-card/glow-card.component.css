@@ -1,0 +1,11 @@
+:host {
+  display: block;
+}
+
+div {
+  transition: 0.25s ease;
+  box-shadow: 0 0 20px rgba(59,199,255,0.15);
+}
+div:hover {
+  box-shadow: 0 0 35px rgba(59,199,255,0.35);
+}

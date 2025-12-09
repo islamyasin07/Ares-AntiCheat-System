@@ -1,0 +1,9 @@
+<div class="h-full overflow-y-auto space-y-2">
+  <div *ngFor="let e of events" class="p-3 rounded bg-[#0D1427] border border-neonBlue/20">
+    <p class="text-softWhite text-sm">
+      <span class="text-neonPink font-bold">{{e.playerId}}</span>
+      — {{e.cheatType}} 
+      — <span class="opacity-60">{{e.timestamp}}</span>
+    </p>
+  </div>
+</div>

@@ -1,0 +1,9 @@
+<div class="absolute inset-0 overflow-hidden pointer-events-none z-10">
+  <div
+    *ngFor="let _ of particles; let i = index"
+    class="particle"
+    [style.left.%]="(i * 7) % 100"
+    [style.top.%]="(i * 13) % 100"
+    [style.animation-delay.s]="(i * 0.37) % 6"
+  ></div>
+</div>
