@@ -48,6 +48,16 @@ object SparkStreamingApp {
       .select(from_json(col("json"), schema).as("data"))
       .select("data.*")
 
+    // Feature engineering: acceleration, jerk, smoothness
+    import org.apache.spark.sql.expressions.Window
+    val w = Window.partitionBy(col("playerId")).orderBy(col("timestamp"))
+    val withLag = parsedDF
+      .withColumn("prevSpeed", lag(col("speed"), 1).over(w))
+      .withColumn("acceleration", (col("speed") - col("prevSpeed")).cast("double"))
+      .withColumn("prevAccel", lag(col("acceleration"), 1).over(w))
+      .withColumn("jerk", (col("acceleration") - col("prevAccel")).cast("double"))
+      .withColumn("smoothness", when(col("jerk").isNull, lit(1.0)).otherwise(1.0 / (abs(col("jerk")) + lit(1.0))))
+
     val aimbotDF = parsedDF.filter(
       col("speed") > 50 ||
       (col("isFlick") === true && col("speed") > 40)
@@ -74,10 +84,28 @@ object SparkStreamingApp {
       )
       .filter(col("cheatType").isNotNull)
 
+    val detectionsStructured = suspiciousDF.select(
+      col("playerId"), col("timestamp"), col("isFlick"), col("eventType"),
+      col("cheatType").alias("ruleTriggered"),
+      (when(col("cheatType") === "Aimbot-Speed", col("speed")/150.0)
+        .when(col("cheatType") === "Aimbot-Flick", lit(0.8))
+        .when(col("cheatType") === "Robotic-Aim", lit(0.7))
+        .otherwise(lit(0.5))).alias("cheatScore"))
+
+    val eventsRawStructured = parsedDF.select(
+      col("playerId"), col("timestamp"),
+      struct(col("deltaX"), col("deltaY"), col("speed")).alias("movement"),
+      col("isFlick"), col("eventType"), col("json").alias("rawEvent"))
+
+    val eventsFeaturesStructured = withLag.select(
+      col("playerId"), col("timestamp"),
+      struct(col("deltaX"), col("deltaY"), col("speed"), col("acceleration"), col("jerk"), col("smoothness")).alias("movement"),
+      col("isFlick"), col("eventType"))
+
     def writeToMongo(
-        df: Dataset[Row],
-        collectionName: String,
-        batchId: Long
+      df: Dataset[Row],
+      collectionName: String,
+      batchId: Long
     ): Unit = {
 
       // Proceed without an explicit emptiness action to avoid planning issues
@@ -104,23 +132,31 @@ object SparkStreamingApp {
       }
     }
 
-    val suspiciousQuery = suspiciousDF.writeStream
+    val suspiciousQuery = detectionsStructured.writeStream
       .trigger(org.apache.spark.sql.streaming.Trigger.ProcessingTime("5 seconds"))
       .foreachBatch { (batchDF: Dataset[Row], batchId: Long) =>
-        writeToMongo(batchDF, "suspicious", batchId)
+        writeToMongo(batchDF, "detections", batchId)
       }
       .option("checkpointLocation", "checkpoint/suspicious")
       .start()
 
-    val allEventsQuery = parsedDF.writeStream
+    val allEventsQuery = eventsRawStructured.writeStream
       .trigger(org.apache.spark.sql.streaming.Trigger.ProcessingTime("5 seconds"))
       .foreachBatch { (batchDF: Dataset[Row], batchId: Long) =>
-        writeToMongo(batchDF, "events", batchId)
+        writeToMongo(batchDF, "events_raw", batchId)
       }
       .option("checkpointLocation", "checkpoint/events")
       .start()
 
-    val consoleQuery = suspiciousDF.writeStream
+    val featuresQuery = eventsFeaturesStructured.writeStream
+      .trigger(org.apache.spark.sql.streaming.Trigger.ProcessingTime("5 seconds"))
+      .foreachBatch { (batchDF: Dataset[Row], batchId: Long) =>
+        writeToMongo(batchDF, "events_features", batchId)
+      }
+      .option("checkpointLocation", "checkpoint/features")
+      .start()
+
+    val consoleQuery = detectionsStructured.writeStream
       .outputMode("append")
       .format("console")
       .option("truncate", false)
