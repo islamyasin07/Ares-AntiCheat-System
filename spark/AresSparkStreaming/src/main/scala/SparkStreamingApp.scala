@@ -1,6 +1,7 @@
 import org.apache.spark.sql.{SparkSession, Dataset, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import com.typesafe.config.ConfigFactory
 
 import com.mongodb.client.MongoClients
 import org.bson.Document
@@ -18,6 +19,16 @@ object SparkStreamingApp {
     spark.conf.set("spark.sql.shuffle.partitions", "1")
     spark.conf.set("spark.streaming.backpressure.enabled", "true")
     spark.conf.set("spark.sql.streaming.stateStore.maintenanceInterval", "30s")
+
+    // Load detection rules config
+    val conf = ConfigFactory.parseFile(new java.io.File("c:/Ares-AntiCheat-System/config/detection_rules.conf")).resolve()
+    val speedMin = conf.getDouble("rules.aimbot-speed.minSpeed")
+    val flickMin = conf.getDouble("rules.aimbot-flick.minSpeed")
+    val requireFlick = conf.getBoolean("rules.aimbot-flick.requireFlick")
+    val roboticMaxDelta = conf.getDouble("rules.robotic-aim.maxDelta")
+    val roboticMinSpeed = conf.getDouble("rules.robotic-aim.minSpeed")
+    val noRecoilMaxDeltaY = conf.getDouble("rules.no-recoil.maxDeltaY")
+    val noRecoilMinSpeed = conf.getDouble("rules.no-recoil.minSpeed")
 
     // Use explicit partition assignment to avoid partition resolution timeouts in local dev.
       val kafkaDF = spark.readStream
@@ -59,28 +70,28 @@ object SparkStreamingApp {
       .withColumn("smoothness", when(col("jerk").isNull, lit(1.0)).otherwise(1.0 / (abs(col("jerk")) + lit(1.0))))
 
     val aimbotDF = parsedDF.filter(
-      col("speed") > 50 ||
-      (col("isFlick") === true && col("speed") > 40)
+      (col("speed") > speedMin) ||
+      ((col("speed") > flickMin) && (if (requireFlick) col("isFlick") === true else lit(true)))
     )
 
     val norecoilDF = parsedDF.filter(
-      abs(col("deltaY")) < 0.2 && col("speed") > 30
+      abs(col("deltaY")) < noRecoilMaxDeltaY && col("speed") > noRecoilMinSpeed
     )
 
     val roboticDF = parsedDF.filter(
-      abs(col("deltaX")) < 0.3 &&
-      abs(col("deltaY")) < 0.3 &&
-      col("speed") > 25
+      abs(col("deltaX")) < roboticMaxDelta &&
+      abs(col("deltaY")) < roboticMaxDelta &&
+      col("speed") > roboticMinSpeed
     )
 
     val suspiciousDF = aimbotDF
       .union(norecoilDF)
       .union(roboticDF)
       .withColumn("cheatType",
-        when(col("speed") > 100, "Aimbot-Speed")
-          .when(col("isFlick") && col("speed") > 85, "Aimbot-Flick")
-          .when(abs(col("deltaY")) < 0.05 && col("speed") > 40, "No-Recoil")
-          .when(abs(col("deltaX")) < 0.15 && abs(col("deltaY")) < 0.15 && col("speed") > 30, "Robotic-Aim")
+        when(col("speed") > speedMin, "Aimbot-Speed")
+          .when((col("speed") > flickMin) && (if (requireFlick) col("isFlick") === true else lit(true)), "Aimbot-Flick")
+          .when(abs(col("deltaY")) < noRecoilMaxDeltaY && col("speed") > noRecoilMinSpeed, "No-Recoil")
+          .when(abs(col("deltaX")) < roboticMaxDelta && abs(col("deltaY")) < roboticMaxDelta && col("speed") > roboticMinSpeed, "Robotic-Aim")
       )
       .filter(col("cheatType").isNotNull)
 
