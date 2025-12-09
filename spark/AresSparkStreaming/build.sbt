@@ -4,6 +4,8 @@ version := "0.1"
 
 scalaVersion := "2.12.18"
 
+Compile / run / mainClass := Some("SparkStreamingApp")
+
 libraryDependencies ++= Seq(
   // Spark core dependencies
   "org.apache.spark" %% "spark-sql" % "3.5.0",

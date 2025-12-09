@@ -10,17 +10,27 @@ object SparkStreamingApp {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession.builder()
       .appName("Ares AntiCheat - Spark Streaming")
-      .master("local[*]")
+      .master("local[1]")
       .getOrCreate()
 
     spark.sparkContext.setLogLevel("ERROR")
     println("🔥 Spark Streaming App Started...")
+    spark.conf.set("spark.sql.shuffle.partitions", "1")
+    spark.conf.set("spark.streaming.backpressure.enabled", "true")
+    spark.conf.set("spark.sql.streaming.stateStore.maintenanceInterval", "30s")
 
-    val kafkaDF = spark.readStream
-      .format("kafka")
-      .option("kafka.bootstrap.servers", "localhost:9092")
-      .option("subscribe", "player-events")
+    // Use explicit partition assignment to avoid partition resolution timeouts in local dev.
+      val kafkaDF = spark.readStream
+        .format("kafka")
+        .option("kafka.bootstrap.servers", "localhost:9092")
+        .option("subscribe", "player-events")
       .option("startingOffsets", "latest")
+        .option("maxOffsetsPerTrigger", "1000")
+      .option("failOnDataLoss", "false")
+      .option("minPartitions", "1")
+      .option("fetchOffset.numRetries", "30")
+      .option("kafka.request.timeout.ms", "120000")
+      .option("kafka.metadata.max.age.ms", "30000")
       .load()
 
     val rawJson = kafkaDF.selectExpr("CAST(value AS STRING) as json")
@@ -61,8 +71,8 @@ object SparkStreamingApp {
           .when(col("isFlick") && col("speed") > 85, "Aimbot-Flick")
           .when(abs(col("deltaY")) < 0.05 && col("speed") > 40, "No-Recoil")
           .when(abs(col("deltaX")) < 0.15 && abs(col("deltaY")) < 0.15 && col("speed") > 30, "Robotic-Aim")
-          .otherwise("Unknown")
       )
+      .filter(col("cheatType").isNotNull)
 
     def writeToMongo(
         df: Dataset[Row],
@@ -70,7 +80,8 @@ object SparkStreamingApp {
         batchId: Long
     ): Unit = {
 
-      if (df.isEmpty) return
+      // Proceed without an explicit emptiness action to avoid planning issues
+      // Collect JSON docs and skip insert if none
 
       val mongoUri = sys.env.getOrElse("MONGO_URI", "mongodb://localhost:27017")
       println(s"Connecting to MongoDB -> $mongoUri, DB -> ares_anticheat, coll -> $collectionName (batch: $batchId)")
@@ -78,10 +89,12 @@ object SparkStreamingApp {
       try {
         val coll = client.getDatabase("ares_anticheat").getCollection(collectionName)
 
-        val docs = df.toJSON.collect().map(Document.parse).toList.asJava
-        if (!docs.isEmpty) {
-          coll.insertMany(docs)
-          println(s"✔️ Inserted ${docs.size()} documents → $collectionName (batch: $batchId)")
+        val docsList = df.toJSON.collect().map(Document.parse).toList
+        if (docsList.nonEmpty) {
+          coll.insertMany(docsList.asJava)
+          println(s"✔️ Inserted ${docsList.size} documents → $collectionName (batch: $batchId)")
+        } else {
+          println(s"ℹ️ No documents to insert → $collectionName (batch: $batchId)")
         }
       } catch {
         case e: Exception =>
@@ -92,6 +105,7 @@ object SparkStreamingApp {
     }
 
     val suspiciousQuery = suspiciousDF.writeStream
+      .trigger(org.apache.spark.sql.streaming.Trigger.ProcessingTime("5 seconds"))
       .foreachBatch { (batchDF: Dataset[Row], batchId: Long) =>
         writeToMongo(batchDF, "suspicious", batchId)
       }
@@ -99,6 +113,7 @@ object SparkStreamingApp {
       .start()
 
     val allEventsQuery = parsedDF.writeStream
+      .trigger(org.apache.spark.sql.streaming.Trigger.ProcessingTime("5 seconds"))
       .foreachBatch { (batchDF: Dataset[Row], batchId: Long) =>
         writeToMongo(batchDF, "events", batchId)
       }
@@ -112,7 +127,5 @@ object SparkStreamingApp {
       .start()
 
     spark.streams.awaitAnyTermination()
-  }
-}
   }
 }
