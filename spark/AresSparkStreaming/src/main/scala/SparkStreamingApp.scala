@@ -126,11 +126,11 @@ object SparkStreamingApp {
           coll.insertMany(docsList.asJava)
           println(s"✔️ Inserted ${docsList.size} documents → $collectionName (batch: $batchId)")
         } else {
-          println(s"ℹ️ No documents to insert → $collectionName (batch: $batchId)")
+          println(s"No documents to insert → $collectionName (batch: $batchId)")
         }
       } catch {
         case e: Exception =>
-          println(s"❌ MongoDB Error in $collectionName / batch $batchId: " + e.getMessage)
+          println(s"MongoDB Error in $collectionName / batch $batchId: " + e.getMessage)
       } finally {
         client.close()
       }
