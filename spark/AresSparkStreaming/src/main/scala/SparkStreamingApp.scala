@@ -67,7 +67,7 @@ object SparkStreamingApp {
       .withColumn("acceleration", (col("speed") - col("prevSpeed")).cast("double"))
       .withColumn("prevAccel", lag(col("acceleration"), 1).over(w))
       .withColumn("jerk", (col("acceleration") - col("prevAccel")).cast("double"))
-      .withColumn("smoothness", when(col("jerk").isNull, lit(1.0)).otherwise(1.0 / (abs(col("jerk")) + lit(1.0))))
+      .withColumn("smoothness", when(col("jerk").isNull, lit(1.0)).otherwise(expr("1.0 / (abs(jerk) + 1.0)")))
 
     val aimbotDF = parsedDF.filter(
       (col("speed") > speedMin) ||
