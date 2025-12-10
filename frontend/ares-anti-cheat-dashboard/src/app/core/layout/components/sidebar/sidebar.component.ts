@@ -11,10 +11,11 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 })
 export class SidebarComponent {
   menu = [
-    { name: 'Dashboard', path: '/' },
-    { name: 'Suspicious Events', path: '/suspicious' },
-    { name: 'Players', path: '/players/1' },
-    { name: 'Analytics', path: '/analytics' },
-    { name: 'Settings', path: '/settings' },
+    { name: 'Dashboard', path: '/', icon: '🏠' },
+    { name: 'Live Feed', path: '/live-feed', icon: '📡' },
+    { name: 'Suspicious Events', path: '/suspicious', icon: '🔍' },
+    { name: 'Players', path: '/players/P01', icon: '👤' },
+    { name: 'Analytics', path: '/analytics', icon: '📊' },
+    { name: 'Settings', path: '/settings', icon: '⚙️' },
   ];
 }

@@ -1,13 +1,224 @@
-.active {
-  background-color: #14203b;
-  color: #3BC7FF;
-  font-weight: bold;
-}
 .sidebar {
-  width: 250px;
-  background-color: #1e2a47;
-  color: #ffffff;
-  height: 100vh;
+  height: 100%;
+  background: linear-gradient(180deg, #0D1427 0%, #0A0F1F 100%);
+  border-right: 1px solid rgba(59, 199, 255, 0.1);
   display: flex;
   flex-direction: column;
+  padding: 0;
+}
+
+/* Logo Section */
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.logo-icon {
+  font-size: 28px;
+  filter: drop-shadow(0 0 10px rgba(59, 199, 255, 0.5));
+}
+
+.logo-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #3BC7FF, #A854FF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+
+.logo-badge {
+  font-size: 9px;
+  padding: 3px 6px;
+  background: rgba(59, 199, 255, 0.2);
+  border: 1px solid rgba(59, 199, 255, 0.3);
+  border-radius: 4px;
+  color: #3BC7FF;
+  font-weight: 600;
+}
+
+/* Navigation */
+.nav-list {
+  list-style: none;
+  padding: 16px 12px;
+  margin: 0;
+  flex: 1;
+}
+
+.nav-item {
+  margin-bottom: 4px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Cosmic hover effect for nav links */
+.nav-link::before {
+  content: '✦ ✧ ★';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 8px;
+  letter-spacing: 15px;
+  opacity: 0;
+  color: #fff;
+  text-shadow: 0 0 10px #3BC7FF, 0 0 20px #A854FF;
+  pointer-events: none;
+  transition: all 0.4s ease;
+  animation: twinkle-stars 1.5s ease-in-out infinite;
+}
+
+.nav-link:hover::before {
+  opacity: 0.6;
+}
+
+@keyframes twinkle-stars {
+  0%, 100% { opacity: 0.3; filter: brightness(1); }
+  50% { opacity: 0.8; filter: brightness(1.5); }
+}
+
+/* Meteor trail on hover */
+.nav-link::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60px;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(168, 84, 255, 0.3),
+    rgba(59, 199, 255, 0.5),
+    transparent
+  );
+  transform: skewX(-20deg);
+  transition: none;
+  opacity: 0;
+}
+
+.nav-link:hover::after {
+  animation: meteor-sweep 0.8s ease-out;
+}
+
+@keyframes meteor-sweep {
+  0% {
+    left: -100%;
+    opacity: 1;
+  }
+  100% {
+    left: 150%;
+    opacity: 0;
+  }
+}
+
+.nav-link:hover {
+  background: radial-gradient(ellipse at center, rgba(168, 84, 255, 0.15), rgba(59, 199, 255, 0.08));
+  color: rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    0 0 20px rgba(168, 84, 255, 0.2),
+    inset 0 0 20px rgba(59, 199, 255, 0.05);
+}
+
+.nav-link.active {
+  background: radial-gradient(ellipse at center, rgba(59, 199, 255, 0.2), rgba(168, 84, 255, 0.15));
+  color: #3BC7FF;
+  font-weight: 600;
+  box-shadow: 
+    0 0 25px rgba(59, 199, 255, 0.25),
+    0 0 50px rgba(168, 84, 255, 0.1);
+}
+
+.nav-link.active .nav-indicator {
+  opacity: 1;
+}
+
+.nav-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+  z-index: 1;
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.nav-link:hover .nav-icon {
+  transform: scale(1.2);
+  filter: drop-shadow(0 0 8px rgba(59, 199, 255, 0.8));
+}
+
+.nav-label {
+  flex: 1;
+  z-index: 1;
+}
+
+.nav-indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: linear-gradient(180deg, #3BC7FF, #A854FF);
+  border-radius: 0 3px 3px 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  box-shadow: 0 0 10px rgba(59, 199, 255, 0.6);
+}
+
+/* Footer */
+.sidebar-footer {
+  padding: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.status-dot.online {
+  background: #22C55E;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.status-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.version-info {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  text-align: center;
 }

@@ -1,20 +1,30 @@
 <div class="relative flex h-screen w-full overflow-hidden bg-background text-softWhite">
 
+  <!-- Ambient glow corners -->
+  <div class="corner-glow top-left"></div>
+  <div class="corner-glow bottom-right"></div>
+  <div class="corner-glow top-right"></div>
+
   <!-- Radial neon gradient background -->
   <div
     class="pointer-events-none absolute inset-0 opacity-70
            bg-[radial-gradient(circle_at_top,_rgba(59,199,255,0.18),_transparent_60%),radial-gradient(circle_at_bottom,_rgba(255,46,151,0.16),_transparent_55%)]">
   </div>
 
+  <!-- Animated gradient orb -->
+  <div class="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] opacity-20">
+    <div class="absolute inset-0 rounded-full bg-gradient-to-r from-neonBlue via-neonPurple to-neonPink blur-3xl animate-pulse"></div>
+  </div>
+
   <!-- Cyber grid overlay -->
   <div
-    class="pointer-events-none absolute inset-0 opacity-25 mix-blend-soft-light
+    class="pointer-events-none absolute inset-0 opacity-20 mix-blend-soft-light
            bg-[linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)]
            bg-[length:40px_40px]">
   </div>
 
   <!-- Noise layer -->
-  <div class="pointer-events-none absolute inset-0 noise-layer opacity-[0.16] mix-blend-overlay"></div>
+  <div class="noise-layer"></div>
 
   <!-- Particles + Butterflies -->
   <app-cyber-particles-background></app-cyber-particles-background>
@@ -29,7 +39,7 @@
     <!-- Main area -->
     <div class="flex-1 flex flex-col overflow-hidden">
       <app-topbar></app-topbar>
-      <main class="flex-1 overflow-y-auto p-6">
+      <main class="flex-1 overflow-y-auto p-4">
         <router-outlet></router-outlet>
       </main>
     </div>

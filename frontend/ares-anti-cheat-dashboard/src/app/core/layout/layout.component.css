@@ -8,14 +8,80 @@
   background-image: url('/assets/noise.png');
   background-size: 260px 260px;
   background-repeat: repeat;
-}
-.noise-layer {
   pointer-events: none;
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.03;
+  opacity: 0.04;
   z-index: 30;
+  animation: noise-flicker 0.5s steps(5) infinite;
+}
+
+@keyframes noise-flicker {
+  0%, 100% { opacity: 0.04; }
+  50% { opacity: 0.06; }
+}
+
+/* Scan line effect */
+.scan-line {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(59, 199, 255, 0.3), 
+    rgba(255, 46, 151, 0.3), 
+    transparent
+  );
+  z-index: 35;
+  animation: scan-down 4s linear infinite;
+  box-shadow: 0 0 20px rgba(59, 199, 255, 0.5);
+}
+
+@keyframes scan-down {
+  0% { top: -10px; }
+  100% { top: 100%; }
+}
+
+/* Ambient glow corners */
+.corner-glow {
+  pointer-events: none;
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  filter: blur(100px);
+  z-index: 5;
+  animation: pulse-ambient 8s ease-in-out infinite;
+}
+
+.corner-glow.top-left {
+  top: -100px;
+  left: -100px;
+  background: rgba(59, 199, 255, 0.2);
+}
+
+.corner-glow.bottom-right {
+  bottom: -100px;
+  right: -100px;
+  background: rgba(255, 46, 151, 0.2);
+}
+
+.corner-glow.top-right {
+  top: -50px;
+  right: -50px;
+  background: rgba(168, 84, 255, 0.15);
+  width: 200px;
+  height: 200px;
+  animation-delay: 2s;
+}
+
+@keyframes pulse-ambient {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.1); }
 }

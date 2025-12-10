@@ -1,15 +1,35 @@
-<nav class="h-full bg-[#0D1427] border-r border-[#1a2337] p-4 shadow-lg">
-  <h1 class="text-xl font-orbitron mb-6 text-neonBlue">ARES</h1>
+<nav class="sidebar">
+  <!-- Logo -->
+  <div class="sidebar-logo">
+    <div class="logo-icon">⚔️</div>
+    <h1 class="logo-text">ARES</h1>
+    <span class="logo-badge">v1.0</span>
+  </div>
 
-  <ul class="space-y-2">
-    <li *ngFor="let item of menu">
+  <!-- Navigation -->
+  <ul class="nav-list">
+    <li *ngFor="let item of menu" class="nav-item">
       <a
         [routerLink]="item.path"
         routerLinkActive="active"
-        class="block p-3 rounded-md hover:bg-[#14203b] hover:text-neonBlue transition font-semibold"
+        [routerLinkActiveOptions]="{exact: item.path === '/'}"
+        class="nav-link"
       >
-        {{ item.name }}
+        <span class="nav-icon">{{ item.icon }}</span>
+        <span class="nav-label">{{ item.name }}</span>
+        <span class="nav-indicator"></span>
       </a>
     </li>
   </ul>
+
+  <!-- Footer -->
+  <div class="sidebar-footer">
+    <div class="status-indicator">
+      <span class="status-dot online"></span>
+      <span class="status-text">System Online</span>
+    </div>
+    <div class="version-info">
+      Powered by Spark + Kafka
+    </div>
+  </div>
 </nav>
