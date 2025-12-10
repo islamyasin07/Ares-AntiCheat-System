@@ -8,7 +8,7 @@ export const config = {
   allowOrigin: process.env.ALLOW_ORIGIN || '*',
   // Collections written by Spark
   collections: {
-    events: 'events',           // All parsed events from Spark
-    suspicious: 'suspicious',   // Suspicious/detection events from Spark
+    events: 'events_raw',       // All raw events from Spark
+    suspicious: 'detections',   // Suspicious/detection events from Spark
   }
 };
