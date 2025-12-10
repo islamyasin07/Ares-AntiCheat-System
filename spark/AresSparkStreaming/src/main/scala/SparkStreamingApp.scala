@@ -114,8 +114,8 @@ object SparkStreamingApp {
       // Proceed without an explicit emptiness action to avoid planning issues
       // Collect JSON docs and skip insert if none
 
-        // Use host-mapped port to target Docker MongoDB explicitly
-        val mongoUri = "mongodb://127.0.0.1:27017"
+        // Use port 27018 to avoid local MongoDB service conflict on 27017
+        val mongoUri = "mongodb://localhost:27018"
       println(s"Connecting to MongoDB -> $mongoUri, DB -> ares_anticheat, coll -> $collectionName (batch: $batchId)")
       val client = MongoClients.create(mongoUri)
       try {
