@@ -1,25 +1,103 @@
-<table class="w-full text-softWhite">
-  <thead>
-    <tr class="text-neonBlue">
-      <th>ID</th>
-      <th>Player</th>
-      <th>Type</th>
-      <th>ΔX</th>
-      <th>ΔY</th>
-      <th>Speed</th>
-      <th>Time</th>
-    </tr>
-  </thead>
+<div class="suspicious-container">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <h1 class="page-title">
+        <span class="title-icon">🔍</span>
+        Suspicious Events
+      </h1>
+      <p class="page-subtitle">Real-time detection of potential cheating behavior</p>
+    </div>
+    <div class="header-stats">
+      <div class="stat-pill">
+        <span class="stat-value">{{ (suspicious$ | async)?.length || 0 }}</span>
+        <span class="stat-label">Total Events</span>
+      </div>
+    </div>
+  </div>
 
-  <tbody>
-    <tr *ngFor="let e of suspicious$ | async">
-      <td>{{ e.eventId }}</td>
-      <td>{{ e.playerId }}</td>
-      <td>{{ e.cheatType }}</td>
-      <td>{{ e.deltaX }}</td>
-      <td>{{ e.deltaY }}</td>
-      <td>{{ e.speed }}</td>
-      <td>{{ e.timestamp }}</td>
-    </tr>
-  </tbody>
-</table>
+  <!-- Filters Bar -->
+  <div class="filters-bar">
+    <div class="search-box">
+      <span class="search-icon">🔎</span>
+      <input 
+        type="text" 
+        placeholder="Search by Player ID..." 
+        [(ngModel)]="searchTerm"
+        class="search-input"
+      />
+    </div>
+    <div class="filter-chips">
+      <button 
+        *ngFor="let type of cheatTypes"
+        (click)="toggleFilter(type)"
+        [class.active]="activeFilters.includes(type)"
+        class="filter-chip"
+      >
+        {{ type }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Data Table -->
+  <div class="table-container">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="col-player">Player</th>
+          <th class="col-type">Cheat Type</th>
+          <th class="col-score">Score</th>
+          <th class="col-details">Details</th>
+          <th class="col-time">Time</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr 
+          *ngFor="let e of filteredEvents" 
+          class="data-row"
+          [class.highlight]="(e.cheatScore || 0) >= 0.8"
+        >
+          <td class="col-player">
+            <div class="player-cell">
+              <span class="player-avatar">{{ getPlayerInitial(e.playerId) }}</span>
+              <span class="player-id">{{ e.playerId }}</span>
+            </div>
+          </td>
+          <td class="col-type">
+            <span class="cheat-badge" [attr.data-type]="getBadgeType(e.cheatType)">
+              {{ e.cheatType || 'Unknown' }}
+            </span>
+          </td>
+          <td class="col-score">
+            <div class="score-bar">
+              <div class="score-fill" [style.width.%]="(e.cheatScore || 0) * 100" [attr.data-level]="getScoreLevel(e.cheatScore)"></div>
+              <span class="score-text">{{ ((e.cheatScore || 0) * 100).toFixed(0) }}%</span>
+            </div>
+          </td>
+          <td class="col-details">
+            <div class="movement-details">
+              <span class="detail-item" *ngIf="e.isFlick">⚡ Flick</span>
+              <span class="detail-item">{{ e.eventType }}</span>
+            </div>
+          </td>
+          <td class="col-time">
+            <span class="timestamp">{{ formatTime(e.timestamp) }}</span>
+          </td>
+          <td class="col-actions">
+            <button class="action-btn" title="View Details" (click)="viewPlayer(e.playerId)">👁️</button>
+            <button class="action-btn warn" title="Flag Player" (click)="flagPlayer(e.playerId)">🚩</button>
+            <button class="action-btn danger" title="Ban Player" (click)="banPlayer(e.playerId)">🚫</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Empty State -->
+    <div *ngIf="!(suspicious$ | async)?.length" class="empty-state">
+      <div class="empty-icon">📊</div>
+      <h3>No Suspicious Events</h3>
+      <p>All players are behaving normally. Check back later.</p>
+    </div>
+  </div>
+</div>
