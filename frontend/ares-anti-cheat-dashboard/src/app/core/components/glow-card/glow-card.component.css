@@ -1,11 +1,329 @@
 :host {
   display: block;
+  height: 100%;
+  overflow: hidden;
 }
 
-div {
-  transition: 0.25s ease;
-  box-shadow: 0 0 20px rgba(59,199,255,0.15);
+.glow-card {
+  position: relative;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(15, 22, 41, 0.95), rgba(13, 20, 39, 0.98));
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    0 0 40px rgba(59, 199, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  height: 100%;
 }
-div:hover {
-  box-shadow: 0 0 35px rgba(59,199,255,0.35);
+
+.glow-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(59, 199, 255, 0.2),
+    0 0 100px rgba(168, 84, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.glow-card-border {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(59, 199, 255, 0.25);
+  pointer-events: none;
+  transition: all 0.4s ease;
+  background: linear-gradient(135deg, rgba(59, 199, 255, 0.03), transparent 50%, rgba(255, 46, 151, 0.03));
+}
+
+.glow-card:hover .glow-card-border {
+  border-color: rgba(168, 84, 255, 0.6);
+  box-shadow: inset 0 0 30px rgba(168, 84, 255, 0.15);
+}
+
+.glow-card-content {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+/* Padding classes */
+.glow-card.p-2 .glow-card-content { padding: 8px; }
+.glow-card.p-3 .glow-card-content { padding: 12px; }
+.glow-card.p-4 .glow-card-content { padding: 16px; }
+.glow-card.p-5 .glow-card-content { padding: 20px; }
+.glow-card.p-6 .glow-card-content { padding: 24px; }
+.glow-card.p-8 .glow-card-content { padding: 32px; }
+
+/* ============================================
+   COSMIC HOVER EFFECTS - Stars, Planets, Meteors
+   ============================================ */
+
+.cosmic-effects {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.glow-card:hover .cosmic-effects {
+  opacity: 1;
+}
+
+/* ===== STARS ===== */
+.star {
+  position: absolute;
+  color: #fff;
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s ease;
+  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+  animation: twinkle 1.5s ease-in-out infinite;
+}
+
+.glow-card:hover .star {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.star-1 { top: 10%; left: 15%; color: #3BC7FF; font-size: 12px; animation-delay: 0s; }
+.star-2 { top: 20%; right: 20%; color: #FF2E97; font-size: 10px; animation-delay: 0.2s; }
+.star-3 { bottom: 30%; left: 10%; color: #A854FF; font-size: 14px; animation-delay: 0.4s; }
+.star-4 { top: 40%; right: 10%; color: #FFD700; font-size: 11px; animation-delay: 0.6s; }
+.star-5 { bottom: 15%; right: 25%; color: #3BC7FF; font-size: 9px; animation-delay: 0.8s; }
+.star-6 { top: 60%; left: 25%; color: #FF2E97; font-size: 12px; animation-delay: 1s; }
+.star-7 { bottom: 40%; right: 15%; color: #fff; font-size: 10px; animation-delay: 0.3s; }
+.star-8 { top: 15%; left: 40%; color: #A854FF; font-size: 8px; animation-delay: 0.7s; }
+
+@keyframes twinkle {
+  0%, 100% { 
+    opacity: 0.6; 
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% { 
+    opacity: 1; 
+    transform: scale(1.3);
+    filter: brightness(1.5);
+  }
+}
+
+.glow-card:hover .star-1 { animation: twinkle 1.5s ease-in-out infinite, float-star-1 4s ease-in-out infinite; }
+.glow-card:hover .star-2 { animation: twinkle 1.8s ease-in-out infinite, float-star-2 5s ease-in-out infinite; }
+.glow-card:hover .star-3 { animation: twinkle 1.3s ease-in-out infinite, float-star-1 4.5s ease-in-out infinite; }
+.glow-card:hover .star-4 { animation: twinkle 2s ease-in-out infinite, float-star-2 3.5s ease-in-out infinite; }
+.glow-card:hover .star-5 { animation: twinkle 1.6s ease-in-out infinite, float-star-1 5.5s ease-in-out infinite; }
+.glow-card:hover .star-6 { animation: twinkle 1.4s ease-in-out infinite, float-star-2 4s ease-in-out infinite; }
+
+@keyframes float-star-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(5px, -5px) scale(1.2); }
+  50% { transform: translate(0, -10px) scale(1); }
+  75% { transform: translate(-5px, -5px) scale(1.1); }
+}
+
+@keyframes float-star-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-3px, 5px) scale(1.1); }
+  50% { transform: translate(5px, 3px) scale(1.2); }
+  75% { transform: translate(3px, -3px) scale(1); }
+}
+
+/* ===== PLANETS ===== */
+.planet {
+  position: absolute;
+  font-size: 20px;
+  opacity: 0;
+  transform: scale(0) rotate(-180deg);
+  transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  filter: drop-shadow(0 0 15px rgba(168, 84, 255, 0.6));
+}
+
+.glow-card:hover .planet {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+.planet-1 {
+  top: 8%;
+  right: 8%;
+  font-size: 24px;
+  transition-delay: 0.1s;
+  filter: drop-shadow(0 0 20px rgba(255, 193, 7, 0.7));
+}
+
+.planet-2 {
+  bottom: 12%;
+  left: 8%;
+  font-size: 18px;
+  transition-delay: 0.2s;
+  filter: drop-shadow(0 0 15px rgba(200, 200, 255, 0.8));
+}
+
+.planet-3 {
+  top: 50%;
+  right: 5%;
+  font-size: 16px;
+  transition-delay: 0.3s;
+  filter: drop-shadow(0 0 12px rgba(59, 199, 255, 0.6));
+}
+
+.glow-card:hover .planet-1 {
+  animation: orbit-1 8s linear infinite, planet-glow 2s ease-in-out infinite;
+}
+
+.glow-card:hover .planet-2 {
+  animation: orbit-2 10s linear infinite, planet-glow 2.5s ease-in-out infinite;
+}
+
+.glow-card:hover .planet-3 {
+  animation: orbit-3 6s linear infinite, planet-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes orbit-1 {
+  0% { transform: rotate(0deg) translateX(5px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(5px) rotate(-360deg); }
+}
+
+@keyframes orbit-2 {
+  0% { transform: rotate(0deg) translateY(3px) rotate(0deg); }
+  100% { transform: rotate(-360deg) translateY(3px) rotate(360deg); }
+}
+
+@keyframes orbit-3 {
+  0% { transform: rotate(0deg) translate(4px, 4px) rotate(0deg); }
+  100% { transform: rotate(360deg) translate(4px, 4px) rotate(-360deg); }
+}
+
+@keyframes planet-glow {
+  0%, 100% { filter: drop-shadow(0 0 15px currentColor) brightness(1); }
+  50% { filter: drop-shadow(0 0 25px currentColor) brightness(1.2); }
+}
+
+/* ===== METEORS ===== */
+.meteor {
+  position: absolute;
+  width: 80px;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.3),
+    rgba(59, 199, 255, 0.8),
+    #fff
+  );
+  border-radius: 50%;
+  opacity: 0;
+  transform: rotate(-45deg);
+  filter: drop-shadow(0 0 6px rgba(59, 199, 255, 0.8));
+}
+
+.meteor::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 
+    0 0 10px #fff,
+    0 0 20px #3BC7FF,
+    0 0 30px #3BC7FF;
+}
+
+.meteor-1 { top: -10%; left: 20%; }
+.meteor-2 { top: -10%; left: 50%; animation-delay: 0.8s !important; }
+.meteor-3 { top: -10%; left: 70%; animation-delay: 1.6s !important; }
+.meteor-4 { top: -10%; right: 10%; animation-delay: 2.4s !important; }
+
+.glow-card:hover .meteor {
+  animation: shoot-meteor 2s linear infinite;
+}
+
+.glow-card:hover .meteor-1 { animation-delay: 0s; }
+.glow-card:hover .meteor-2 { animation-delay: 0.6s; }
+.glow-card:hover .meteor-3 { animation-delay: 1.2s; }
+.glow-card:hover .meteor-4 { animation-delay: 1.8s; }
+
+@keyframes shoot-meteor {
+  0% {
+    opacity: 0;
+    transform: rotate(-45deg) translate(0, 0);
+  }
+  5% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0;
+    transform: rotate(-45deg) translate(200px, 200px);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(-45deg) translate(200px, 200px);
+  }
+}
+
+/* Space dust background on hover */
+.glow-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(1px 1px at 20% 30%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 40% 70%, rgba(59, 199, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 60% 20%, rgba(255, 46, 151, 0.4), transparent),
+    radial-gradient(1px 1px at 80% 50%, rgba(168, 84, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 10% 80%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 90% 10%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 30% 50%, rgba(59, 199, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 70% 90%, rgba(255, 46, 151, 0.3), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: 0;
+}
+
+.glow-card:hover::before {
+  opacity: 1;
+  animation: space-dust 20s linear infinite;
+}
+
+@keyframes space-dust {
+  0% { background-position: 0 0; }
+  100% { background-position: 100px 100px; }
+}
+
+/* Nebula glow effect */
+.glow-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(ellipse at 20% 20%, rgba(168, 84, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(59, 199, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(255, 46, 151, 0.05) 0%, transparent 60%);
+  pointer-events: none;
+  border-radius: 16px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: 0;
+}
+
+.glow-card:hover::after {
+  opacity: 1;
 }

@@ -1,0 +1,116 @@
+.cheater-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.cheater-badge:hover {
+  transform: scale(1.05);
+}
+
+.cheater-badge.sm {
+  padding: 4px 8px;
+  font-size: 10px;
+}
+
+.cheater-badge.md {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.cheater-badge.lg {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.badge-icon {
+  font-size: 1.1em;
+}
+
+.badge-label {
+  position: relative;
+  z-index: 1;
+}
+
+.badge-glow {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  filter: blur(8px);
+}
+
+.cheater-badge:hover .badge-glow {
+  opacity: 0.4;
+}
+
+/* Aimbot - Neon Blue */
+.badge-aimbot {
+  background: linear-gradient(135deg, rgba(59, 199, 255, 0.2), rgba(59, 199, 255, 0.1));
+  border: 1px solid rgba(59, 199, 255, 0.5);
+  color: #3BC7FF;
+  box-shadow: 0 0 15px rgba(59, 199, 255, 0.2);
+}
+.badge-aimbot .badge-glow {
+  background: #3BC7FF;
+}
+
+/* No Recoil - Neon Pink */
+.badge-norecoil {
+  background: linear-gradient(135deg, rgba(255, 46, 151, 0.2), rgba(255, 46, 151, 0.1));
+  border: 1px solid rgba(255, 46, 151, 0.5);
+  color: #FF2E97;
+  box-shadow: 0 0 15px rgba(255, 46, 151, 0.2);
+}
+.badge-norecoil .badge-glow {
+  background: #FF2E97;
+}
+
+/* Robotic - Neon Purple */
+.badge-robotic {
+  background: linear-gradient(135deg, rgba(168, 84, 255, 0.2), rgba(168, 84, 255, 0.1));
+  border: 1px solid rgba(168, 84, 255, 0.5);
+  color: #A854FF;
+  box-shadow: 0 0 15px rgba(168, 84, 255, 0.2);
+}
+.badge-robotic .badge-glow {
+  background: #A854FF;
+}
+
+/* Wallhack - Neon Green */
+.badge-wallhack {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  color: #22C55E;
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+}
+.badge-wallhack .badge-glow {
+  background: #22C55E;
+}
+
+/* Trigger Bot - Neon Orange */
+.badge-trigger {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(249, 115, 22, 0.1));
+  border: 1px solid rgba(249, 115, 22, 0.5);
+  color: #F97316;
+  box-shadow: 0 0 15px rgba(249, 115, 22, 0.2);
+}
+.badge-trigger .badge-glow {
+  background: #F97316;
+}
+
+/* Default */
+.badge-default {
+  background: linear-gradient(135deg, rgba(156, 163, 175, 0.2), rgba(156, 163, 175, 0.1));
+  border: 1px solid rgba(156, 163, 175, 0.5);
+  color: #9CA3AF;
+}

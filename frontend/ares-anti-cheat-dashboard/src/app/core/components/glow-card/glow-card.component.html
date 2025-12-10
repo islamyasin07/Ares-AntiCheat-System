@@ -1,3 +1,31 @@
-<div class="relative rounded-xl border border-neonBlue/30 bg-white/5 backdrop-blur-xl shadow-lg overflow-hidden transition hover:shadow-neonBlue/40 hover:border-neonBlue/50 {{padding}}">
-  <ng-content></ng-content>
+<div class="glow-card" [class]="padding">
+  <div class="glow-card-border"></div>
+  
+  <!-- Cosmic Hover Effects -->
+  <div class="cosmic-effects">
+    <!-- Stars -->
+    <div class="star star-1">✦</div>
+    <div class="star star-2">✧</div>
+    <div class="star star-3">★</div>
+    <div class="star star-4">✦</div>
+    <div class="star star-5">⋆</div>
+    <div class="star star-6">✧</div>
+    <div class="star star-7">✦</div>
+    <div class="star star-8">★</div>
+    
+    <!-- Planets -->
+    <div class="planet planet-1">🪐</div>
+    <div class="planet planet-2">🌙</div>
+    <div class="planet planet-3">🌍</div>
+    
+    <!-- Meteors -->
+    <div class="meteor meteor-1"></div>
+    <div class="meteor meteor-2"></div>
+    <div class="meteor meteor-3"></div>
+    <div class="meteor meteor-4"></div>
+  </div>
+  
+  <div class="glow-card-content">
+    <ng-content></ng-content>
+  </div>
 </div>

@@ -1,10 +1,16 @@
-<div class="p-6 rounded-xl bg-[#0F1629] border border-white/10 shadow hover:shadow-xl transition transform hover:-translate-y-1">
-  <h3 class="text-softWhite text-sm opacity-70">{{title}}</h3>
-  <h1 class="text-3xl font-orbitron mt-2"
-      [class.text-neonBlue]="color === 'neonBlue'"
-      [class.text-neonPink]="color === 'neonPink'"
-      [class.text-neonPurple]="color === 'neonPurple'"
-      [class.text-softWhite]="color === 'softWhite'">
-    {{value}}
-  </h1>
+<div class="stat-card" [attr.data-color]="color">
+  <div class="stat-background"></div>
+  <div class="stat-content">
+    <h3 class="stat-title">{{title}}</h3>
+    <h1 class="stat-value">
+      <span class="value-number">{{value | number}}</span>
+    </h1>
+    <div class="stat-trend" *ngIf="trend">
+      <span class="trend-arrow" [class.up]="trend > 0" [class.down]="trend < 0">
+        {{ trend > 0 ? '↑' : '↓' }}
+      </span>
+      <span class="trend-value">{{ trend > 0 ? '+' : '' }}{{ trend }}%</span>
+    </div>
+  </div>
+  <div class="stat-glow"></div>
 </div>
