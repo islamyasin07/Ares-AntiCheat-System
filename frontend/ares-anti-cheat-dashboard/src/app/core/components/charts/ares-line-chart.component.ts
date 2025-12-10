@@ -59,6 +59,7 @@ export class AresLineChartComponent implements AfterViewInit, OnChanges {
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
           legend: {
             labels: {

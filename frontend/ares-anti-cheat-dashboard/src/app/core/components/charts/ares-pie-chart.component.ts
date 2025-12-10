@@ -4,6 +4,8 @@ import {
   ElementRef,
   Input,
   OnChanges,
+  OnDestroy,
+  SimpleChanges,
   ViewChild
 } from '@angular/core';
 import Chart from 'chart.js/auto';
@@ -14,21 +16,34 @@ import Chart from 'chart.js/auto';
   templateUrl: './ares-pie-chart.component.html',
   styleUrls: ['./ares-pie-chart.component.css']
 })
-export class AresPieChartComponent implements AfterViewInit, OnChanges {
+export class AresPieChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>;
   @Input() labels: string[] = [];
   @Input() data: number[] = [];
   chart?: Chart;
+  private initialized = false;
 
   ngAfterViewInit() {
-    this.build();
+    setTimeout(() => {
+      this.build();
+      this.initialized = true;
+    }, 100);
   }
 
-  ngOnChanges() {
-    if (this.chart) {
+  ngOnChanges(changes: SimpleChanges) {
+    if (!this.initialized || !this.chart) return;
+    
+    // Only update if data actually changed
+    if (changes['labels'] || changes['data']) {
       this.chart.data.labels = this.labels;
       this.chart.data.datasets[0].data = this.data;
-      this.chart.update();
+      this.chart.update('none'); // 'none' prevents animation on updates
+    }
+  }
+
+  ngOnDestroy() {
+    if (this.chart) {
+      this.chart.destroy();
     }
   }
 
@@ -49,10 +64,20 @@ export class AresPieChartComponent implements AfterViewInit, OnChanges {
         ]
       },
       options: {
+        responsive: true,
+        maintainAspectRatio: false,
         cutout: '60%',
+        animation: {
+          duration: 500
+        },
         plugins: {
           legend: {
-            labels: { color: '#ffffff' }
+            position: 'right',
+            labels: { 
+              color: '#ffffff',
+              padding: 12,
+              font: { size: 11 }
+            }
           }
         }
       }
