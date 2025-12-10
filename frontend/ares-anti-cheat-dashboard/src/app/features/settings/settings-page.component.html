@@ -1,13 +1,479 @@
-<div class="space-y-6 text-softWhite">
-
-  <h2 class="text-2xl font-orbitron text-neonBlue">Settings</h2>
-
-  <div>
-    <label class="block mb-2">Theme</label>
-    <select [(ngModel)]="theme" class="bg-black/40 p-2 rounded">
-      <option value="dark">Dark</option>
-      <option value="neon">Neon</option>
-    </select>
+<div class="settings-container">
+  <!-- Header -->
+  <div class="page-header">
+    <h1 class="page-title">
+      <span class="title-icon">⚙️</span>
+      Control Panel
+    </h1>
+    <p class="page-subtitle">Manage system settings, data, and player actions</p>
   </div>
 
+  <!-- Tab Navigation -->
+  <div class="tab-nav">
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab === 'general'"
+      (click)="setTab('general')">
+      <span class="tab-icon">🎨</span>
+      General
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab === 'data'"
+      (click)="setTab('data')">
+      <span class="tab-icon">🗄️</span>
+      Data Management
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab === 'players'"
+      (click)="setTab('players')">
+      <span class="tab-icon">👥</span>
+      Player Management
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab === 'system'"
+      (click)="setTab('system')">
+      <span class="tab-icon">🖥️</span>
+      System & History
+    </button>
+  </div>
+
+  <!-- ===================================== -->
+  <!-- GENERAL TAB -->
+  <!-- ===================================== -->
+  <div class="tab-content" *ngIf="activeTab === 'general'">
+    <div class="settings-grid">
+      
+      <!-- Appearance Section -->
+      <div class="settings-card">
+        <div class="card-header">
+          <span class="card-icon">🎨</span>
+          <h2 class="card-title">Appearance</h2>
+        </div>
+        <div class="card-content">
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-label">Theme</span>
+              <span class="setting-desc">Choose your preferred color scheme</span>
+            </div>
+            <select [(ngModel)]="theme" class="setting-select">
+              <option value="dark">Dark (Default)</option>
+              <option value="neon">Neon Cyberpunk</option>
+              <option value="midnight">Midnight Blue</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-label">Particles Effect</span>
+              <span class="setting-desc">Enable floating particles in background</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" [(ngModel)]="particlesEnabled">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-label">Animations</span>
+              <span class="setting-desc">Enable UI animations and transitions</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" [(ngModel)]="animationsEnabled">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notifications Section -->
+      <div class="settings-card">
+        <div class="card-header">
+          <span class="card-icon">🔔</span>
+          <h2 class="card-title">Notifications</h2>
+        </div>
+        <div class="card-content">
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-label">Desktop Alerts</span>
+              <span class="setting-desc">Show desktop notifications for critical events</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" [(ngModel)]="desktopAlerts">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-label">Sound Effects</span>
+              <span class="setting-desc">Play sound on new suspicious detection</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" [(ngModel)]="soundEnabled">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-label">Alert Threshold</span>
+              <span class="setting-desc">Minimum cheat score to trigger alert</span>
+            </div>
+            <div class="slider-container">
+              <input type="range" min="50" max="100" [(ngModel)]="alertThreshold" class="setting-slider">
+              <span class="slider-value">{{ alertThreshold }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data & Display Section -->
+      <div class="settings-card">
+        <div class="card-header">
+          <span class="card-icon">📊</span>
+          <h2 class="card-title">Data & Display</h2>
+        </div>
+        <div class="card-content">
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-label">Refresh Rate</span>
+              <span class="setting-desc">How often to fetch new data</span>
+            </div>
+            <select [(ngModel)]="refreshRate" class="setting-select">
+              <option value="1000">1 second</option>
+              <option value="2000">2 seconds</option>
+              <option value="5000">5 seconds</option>
+              <option value="10000">10 seconds</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-label">Max Events Display</span>
+              <span class="setting-desc">Maximum events shown in tables</span>
+            </div>
+            <select [(ngModel)]="maxEvents" class="setting-select">
+              <option value="50">50 events</option>
+              <option value="100">100 events</option>
+              <option value="200">200 events</option>
+              <option value="500">500 events</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-label">Chart Smoothing</span>
+              <span class="setting-desc">Enable smooth transitions for charts</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" [(ngModel)]="chartSmoothing">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Connection Section -->
+      <div class="settings-card">
+        <div class="card-header">
+          <span class="card-icon">🔌</span>
+          <h2 class="card-title">API Connection</h2>
+        </div>
+        <div class="card-content">
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-label">Backend URL</span>
+              <span class="setting-desc">API endpoint for data fetching</span>
+            </div>
+            <input type="text" [(ngModel)]="apiUrl" class="setting-input" placeholder="http://localhost:3000/api">
+          </div>
+          <div class="connection-status">
+            <span class="status-indicator" [class.online]="isConnected" [class.offline]="!isConnected" [class.checking]="isChecking"></span>
+            <span class="status-text">
+              <ng-container *ngIf="isChecking">Checking...</ng-container>
+              <ng-container *ngIf="!isChecking">{{ isConnected ? 'Connected' : 'Disconnected' }}</ng-container>
+            </span>
+            <span class="status-time" *ngIf="lastChecked">Last: {{ lastChecked }}</span>
+          </div>
+          
+          <div class="connection-stats" *ngIf="isConnected">
+            <div class="conn-stat">
+              <span class="conn-value">{{ totalEvents | number }}</span>
+              <span class="conn-label">Total Events</span>
+            </div>
+            <div class="conn-stat">
+              <span class="conn-value">{{ totalSuspicious | number }}</span>
+              <span class="conn-label">Detections</span>
+            </div>
+          </div>
+          
+          <div class="connection-actions">
+            <button class="btn btn-sm" (click)="checkConnection()" [disabled]="isChecking">
+              🔄 Test Connection
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions-bar">
+      <button class="btn btn-secondary" (click)="resetDefaults()">Reset to Defaults</button>
+      <button class="btn btn-primary" (click)="saveSettings()">Save Changes</button>
+    </div>
+  </div>
+
+  <!-- ===================================== -->
+  <!-- DATA MANAGEMENT TAB -->
+  <!-- ===================================== -->
+  <div class="tab-content" *ngIf="activeTab === 'data'">
+    <div class="data-management">
+      
+      <div class="stats-overview" *ngIf="systemInfo">
+        <div class="stat-box">
+          <span class="stat-icon">📊</span>
+          <span class="stat-value">{{ systemInfo.counts.totalEvents | number }}</span>
+          <span class="stat-label">Total Events</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-icon">🔍</span>
+          <span class="stat-value">{{ systemInfo.counts.totalDetections | number }}</span>
+          <span class="stat-label">Detections</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-icon">💾</span>
+          <span class="stat-value">{{ formatBytes(systemInfo.database.sizeOnDisk) }}</span>
+          <span class="stat-label">Database Size</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-icon">📁</span>
+          <span class="stat-value">{{ systemInfo.database.collections }}</span>
+          <span class="stat-label">Collections</span>
+        </div>
+      </div>
+
+      <div class="danger-zone">
+        <h3 class="zone-title">⚠️ Danger Zone</h3>
+        <p class="zone-desc">These actions are irreversible. All cleared data will be permanently deleted.</p>
+        
+        <div class="clear-actions">
+          <div class="clear-card">
+            <div class="clear-info">
+              <h4>Clear Detections</h4>
+              <p>Remove all suspicious event detections. Raw events will be preserved.</p>
+            </div>
+            <button class="btn btn-danger" (click)="confirmClear('detections')" [disabled]="isClearing">
+              🗑️ Clear Detections
+            </button>
+          </div>
+          
+          <div class="clear-card">
+            <div class="clear-info">
+              <h4>Clear Raw Events</h4>
+              <p>Remove all raw game events. Detections will be preserved.</p>
+            </div>
+            <button class="btn btn-danger" (click)="confirmClear('events')" [disabled]="isClearing">
+              📭 Clear Events
+            </button>
+          </div>
+          
+          <div class="clear-card nuclear">
+            <div class="clear-info">
+              <h4>☢️ Clear ALL Data</h4>
+              <p>Remove ALL events and detections. This is the nuclear option.</p>
+            </div>
+            <button class="btn btn-nuclear" (click)="confirmClear('all')" [disabled]="isClearing">
+              💣 Clear Everything
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" *ngIf="clearConfirmType" (click)="cancelClear()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <h3 class="modal-title">⚠️ Confirm Action</h3>
+          <p class="modal-text">
+            Are you sure you want to clear 
+            <strong>{{ clearConfirmType === 'all' ? 'ALL DATA' : clearConfirmType }}</strong>?
+            This action cannot be undone.
+          </p>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" (click)="cancelClear()">Cancel</button>
+            <button class="btn btn-danger" (click)="executeClear()" [disabled]="isClearing">
+              {{ isClearing ? 'Clearing...' : 'Yes, Clear Data' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================== -->
+  <!-- PLAYER MANAGEMENT TAB -->
+  <!-- ===================================== -->
+  <div class="tab-content" *ngIf="activeTab === 'players'">
+    <div class="player-management">
+      
+      <div class="player-stats" *ngIf="systemInfo">
+        <div class="stat-pill flagged">
+          <span class="pill-icon">🚩</span>
+          <span class="pill-value">{{ systemInfo.counts.flaggedPlayers }}</span>
+          <span class="pill-label">Flagged</span>
+        </div>
+        <div class="stat-pill banned">
+          <span class="pill-icon">🚫</span>
+          <span class="pill-value">{{ systemInfo.counts.bannedPlayers }}</span>
+          <span class="pill-label">Banned</span>
+        </div>
+      </div>
+
+      <div class="flagged-list">
+        <div class="list-header">
+          <h3>Flagged & Banned Players</h3>
+          <button class="btn btn-sm" (click)="loadFlaggedPlayers()" [disabled]="isLoadingFlagged">
+            🔄 Refresh
+          </button>
+        </div>
+
+        <div class="loading-state" *ngIf="isLoadingFlagged">Loading...</div>
+
+        <div class="empty-state" *ngIf="!isLoadingFlagged && flaggedPlayers.length === 0">
+          <span class="empty-icon">✅</span>
+          <p>No flagged or banned players</p>
+        </div>
+
+        <div class="player-list" *ngIf="!isLoadingFlagged && flaggedPlayers.length > 0">
+          <div class="player-row" *ngFor="let p of flaggedPlayers" [class.banned]="p.status === 'BANNED'">
+            <div class="player-info">
+              <span class="player-avatar">{{ p.playerId.charAt(0).toUpperCase() }}</span>
+              <div class="player-details">
+                <span class="player-id">{{ p.playerId }}</span>
+                <span class="player-reason">{{ p.reason }}</span>
+              </div>
+            </div>
+            <div class="player-status">
+              <span class="status-badge" [class.flagged]="p.status === 'FLAGGED'" [class.banned]="p.status === 'BANNED'">
+                {{ p.status }}
+              </span>
+            </div>
+            <div class="player-actions">
+              <button *ngIf="p.status === 'FLAGGED'" class="btn btn-sm btn-success" (click)="unflagPlayer(p.playerId)">
+                ✅ Unflag
+              </button>
+              <button *ngIf="p.status === 'BANNED'" class="btn btn-sm btn-success" (click)="unbanPlayer(p.playerId)">
+                🔓 Unban
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================== -->
+  <!-- SYSTEM & HISTORY TAB -->
+  <!-- ===================================== -->
+  <div class="tab-content" *ngIf="activeTab === 'system'">
+    <div class="system-info">
+      
+      <div class="system-grid" *ngIf="systemInfo">
+        <div class="system-card">
+          <div class="card-header">
+            <span class="card-icon">🗄️</span>
+            <h3>Database</h3>
+          </div>
+          <div class="card-body">
+            <div class="info-row">
+              <span class="info-label">Name:</span>
+              <span class="info-value">{{ systemInfo.database.name }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Size:</span>
+              <span class="info-value">{{ formatBytes(systemInfo.database.sizeOnDisk) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Collections:</span>
+              <span class="info-value">{{ systemInfo.database.collections }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="system-card">
+          <div class="card-header">
+            <span class="card-icon">🖥️</span>
+            <h3>Server</h3>
+          </div>
+          <div class="card-body">
+            <div class="info-row">
+              <span class="info-label">Uptime:</span>
+              <span class="info-value">{{ formatUptime(systemInfo.server.uptime) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Node Version:</span>
+              <span class="info-value">{{ systemInfo.server.nodeVersion }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Memory:</span>
+              <span class="info-value">{{ formatBytes(systemInfo.server.memoryUsage.heapUsed || 0) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="system-card">
+          <div class="card-header">
+            <span class="card-icon">📈</span>
+            <h3>Counts</h3>
+          </div>
+          <div class="card-body">
+            <div class="info-row">
+              <span class="info-label">Events:</span>
+              <span class="info-value">{{ systemInfo.counts.totalEvents | number }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Detections:</span>
+              <span class="info-value">{{ systemInfo.counts.totalDetections | number }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Actions:</span>
+              <span class="info-value">{{ systemInfo.counts.actionHistory }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="history-section">
+        <div class="section-header">
+          <h3>📋 Action History</h3>
+          <div class="section-actions">
+            <button class="btn btn-sm" (click)="loadActionHistory()" [disabled]="isLoadingHistory">
+              🔄 Refresh
+            </button>
+            <button class="btn btn-sm btn-danger" (click)="clearHistory()" *ngIf="actionHistory.length > 0">
+              🗑️ Clear History
+            </button>
+          </div>
+        </div>
+
+        <div class="loading-state" *ngIf="isLoadingHistory">Loading history...</div>
+
+        <div class="empty-state" *ngIf="!isLoadingHistory && actionHistory.length === 0">
+          <span class="empty-icon">📭</span>
+          <p>No actions recorded yet</p>
+        </div>
+
+        <div class="history-list" *ngIf="!isLoadingHistory && actionHistory.length > 0">
+          <div class="history-item" *ngFor="let action of actionHistory" [class]="getActionClass(action.action)">
+            <span class="action-icon">{{ getActionIcon(action.action) }}</span>
+            <div class="action-info">
+              <span class="action-name">{{ action.action }}</span>
+              <span class="action-details" *ngIf="action.details?.playerId">
+                Player: {{ action.details.playerId }}
+              </span>
+              <span class="action-details" *ngIf="action.details?.deletedCount !== undefined">
+                Deleted: {{ action.details.deletedCount | number }} records
+              </span>
+            </div>
+            <span class="action-time">{{ action.timestamp | date:'short' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
