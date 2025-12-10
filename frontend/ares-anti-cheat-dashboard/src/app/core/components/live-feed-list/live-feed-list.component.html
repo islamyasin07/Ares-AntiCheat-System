@@ -1,9 +1,25 @@
-<div class="h-full overflow-y-auto space-y-2">
-  <div *ngFor="let e of events" class="p-3 rounded bg-[#0D1427] border border-neonBlue/20">
-    <p class="text-softWhite text-sm">
-      <span class="text-neonPink font-bold">{{e.playerId}}</span>
-      — {{e.cheatType}} 
-      — <span class="opacity-60">{{e.timestamp}}</span>
-    </p>
+<div class="feed-container">
+  <div *ngFor="let e of events; let i = index" 
+       class="feed-item" 
+       [class.new]="i === 0"
+       [attr.data-type]="getEventType(e.cheatType)">
+    <div class="feed-indicator"></div>
+    <div class="feed-content">
+      <div class="feed-header">
+        <span class="player-tag">{{ e.playerId }}</span>
+        <span class="cheat-type">{{ e.cheatType || 'Unknown' }}</span>
+      </div>
+      <div class="feed-details">
+        <span class="score-badge" *ngIf="e.cheatScore">
+          {{ (e.cheatScore * 100).toFixed(0) }}%
+        </span>
+        <span class="timestamp">{{ formatTime(e.timestamp) }}</span>
+      </div>
+    </div>
+  </div>
+  
+  <div *ngIf="!events?.length" class="empty-feed">
+    <span class="empty-icon">📡</span>
+    <span>Waiting for events...</span>
   </div>
 </div>
