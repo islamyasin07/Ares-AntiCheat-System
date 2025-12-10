@@ -1,4 +1,146 @@
-<app-glow-card>
-  <h1 class="text-3xl font-orbitron text-neonPurple mb-4">System Analytics</h1>
-  <p class="text-softWhite opacity-70">Pipeline charts will be here.</p>
-</app-glow-card>
+<div class="analytics-container">
+  <!-- Header -->
+  <div class="page-header">
+    <h1 class="page-title">
+      <span class="title-icon">📊</span>
+      System Analytics
+    </h1>
+    <p class="page-subtitle">Real-time pipeline monitoring and performance metrics</p>
+  </div>
+
+  <ng-container *ngIf="analytics$ | async as analytics">
+    <!-- Metrics Cards -->
+    <div class="metrics-grid">
+      <div class="metric-card blue">
+        <div class="metric-icon">⚡</div>
+        <div class="metric-content">
+          <span class="metric-value">{{ analytics.ingestion || 0 }}</span>
+          <span class="metric-label">Events/min</span>
+        </div>
+        <div class="metric-bar">
+          <div class="metric-bar-fill" [style.width.%]="(analytics.ingestion || 0) / 2"></div>
+        </div>
+      </div>
+
+      <div class="metric-card pink">
+        <div class="metric-icon">🎯</div>
+        <div class="metric-content">
+          <span class="metric-value">{{ detectionRate }}%</span>
+          <span class="metric-label">Detection Rate</span>
+        </div>
+        <div class="metric-bar">
+          <div class="metric-bar-fill" [style.width.%]="detectionRate"></div>
+        </div>
+      </div>
+
+      <div class="metric-card purple">
+        <div class="metric-icon">🔥</div>
+        <div class="metric-content">
+          <span class="metric-value">{{ analytics.sparkLoad || 0 | number:'1.0-0' }}%</span>
+          <span class="metric-label">Spark Load</span>
+        </div>
+        <div class="metric-bar">
+          <div class="metric-bar-fill" [style.width.%]="analytics.sparkLoad || 0"></div>
+        </div>
+      </div>
+
+      <div class="metric-card green">
+        <div class="metric-icon">🗄️</div>
+        <div class="metric-content">
+          <span class="metric-value">{{ totalEvents | number }}</span>
+          <span class="metric-label">Total Events</span>
+        </div>
+        <div class="metric-sub">{{ totalSuspicious | number }} suspicious</div>
+      </div>
+    </div>
+
+    <!-- Pipeline Status -->
+    <div class="pipeline-section">
+      <h2 class="section-title">Pipeline Status</h2>
+      <div class="pipeline-flow">
+        <div class="pipeline-node active">
+          <div class="node-icon">🎮</div>
+          <div class="node-label">Data Generator</div>
+          <div class="node-status">Running</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-node active">
+          <div class="node-icon">📨</div>
+          <div class="node-label">Kafka</div>
+          <div class="node-status">Connected</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-node active">
+          <div class="node-icon">⚡</div>
+          <div class="node-label">Spark Streaming</div>
+          <div class="node-status">Processing</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-node active">
+          <div class="node-icon">🗄️</div>
+          <div class="node-label">MongoDB</div>
+          <div class="node-status">Writing</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-node active">
+          <div class="node-icon">🖥️</div>
+          <div class="node-label">Dashboard</div>
+          <div class="node-status">Live</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-grid">
+      <app-glow-card class="chart-card">
+        <h3 class="chart-title">Events Throughput (last 10 minutes)</h3>
+        <app-ares-line-chart
+          [labels]="throughputLabels"
+          [data]="throughputData">
+        </app-ares-line-chart>
+      </app-glow-card>
+
+      <app-glow-card class="chart-card">
+        <h3 class="chart-title">System Resources</h3>
+        <div class="resource-bars">
+          <div class="resource-item">
+            <span class="resource-label">CPU</span>
+            <div class="resource-bar">
+              <div class="resource-fill cpu" [style.width.%]="cpuUsage"></div>
+            </div>
+            <span class="resource-value">{{ cpuUsage }}%</span>
+          </div>
+          <div class="resource-item">
+            <span class="resource-label">Memory</span>
+            <div class="resource-bar">
+              <div class="resource-fill memory" [style.width.%]="memoryUsage"></div>
+            </div>
+            <span class="resource-value">{{ memoryUsage }}%</span>
+          </div>
+          <div class="resource-item">
+            <span class="resource-label">Disk I/O</span>
+            <div class="resource-bar">
+              <div class="resource-fill disk" [style.width.%]="diskUsage"></div>
+            </div>
+            <span class="resource-value">{{ diskUsage }}%</span>
+          </div>
+        </div>
+      </app-glow-card>
+    </div>
+
+    <!-- Logs Preview -->
+    <app-glow-card>
+      <h3 class="chart-title">Recent System Logs</h3>
+      <div class="logs-container">
+        <div class="log-entry" *ngFor="let log of recentLogs">
+          <span class="log-time">{{ log.time }}</span>
+          <span class="log-level" [attr.data-level]="log.level">{{ log.level }}</span>
+          <span class="log-message">{{ log.message }}</span>
+        </div>
+        <div class="log-entry" *ngIf="recentLogs.length === 0">
+          <span class="log-message">Waiting for system logs...</span>
+        </div>
+      </div>
+    </app-glow-card>
+  </ng-container>
+</div>
