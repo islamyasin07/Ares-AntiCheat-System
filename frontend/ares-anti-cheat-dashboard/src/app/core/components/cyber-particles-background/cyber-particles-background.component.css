@@ -4,24 +4,66 @@
   height: 3px;
   border-radius: 999px;
   background: #3BC7FF;
-  opacity: 0.25;
+  opacity: 0.3;
   box-shadow:
     0 0 8px rgba(59, 199, 255, 0.9),
-    0 0 18px rgba(10, 239, 255, 0.6);
+    0 0 18px rgba(10, 239, 255, 0.6),
+    0 0 30px rgba(59, 199, 255, 0.4);
   animation: particle-float 7s infinite ease-in-out alternate;
+}
+
+.particle:nth-child(even) {
+  background: #FF2E97;
+  box-shadow:
+    0 0 8px rgba(255, 46, 151, 0.9),
+    0 0 18px rgba(255, 46, 151, 0.6),
+    0 0 30px rgba(255, 46, 151, 0.4);
+}
+
+.particle:nth-child(3n) {
+  background: #A854FF;
+  box-shadow:
+    0 0 8px rgba(168, 84, 255, 0.9),
+    0 0 18px rgba(168, 84, 255, 0.6),
+    0 0 30px rgba(168, 84, 255, 0.4);
 }
 
 @keyframes particle-float {
   0% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0.15;
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.2;
+  }
+  25% {
+    transform: translate3d(15px, -20px, 0) scale(1.3);
+    opacity: 0.6;
   }
   50% {
-    transform: translate3d(8px, -12px, 0);
-    opacity: 0.55;
+    transform: translate3d(8px, -12px, 0) scale(1);
+    opacity: 0.4;
+  }
+  75% {
+    transform: translate3d(-10px, -5px, 0) scale(1.2);
+    opacity: 0.5;
   }
   100% {
-    transform: translate3d(-6px, 6px, 0);
+    transform: translate3d(-6px, 6px, 0) scale(1);
     opacity: 0.25;
   }
+}
+
+/* Pulsing glow effect */
+.particle::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: inherit;
+  filter: blur(4px);
+  opacity: 0.5;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.5); opacity: 0.6; }
 }

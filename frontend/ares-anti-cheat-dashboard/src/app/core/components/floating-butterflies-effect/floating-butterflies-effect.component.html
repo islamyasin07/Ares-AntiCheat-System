@@ -1,11 +1,34 @@
 <div class="absolute inset-0 overflow-hidden pointer-events-none z-20">
+  <!-- Real butterflies with wings -->
   <div
     *ngFor="let b of butterflies"
-    class="butterfly"
+    class="butterfly-container"
     [style.left.%]="b.left"
     [style.animation-delay.s]="b.delay"
     [style.animation-duration.s]="b.duration"
-    [style.transform]="'scale(' + b.scale + ')'"
-    [style.filter]="'hue-rotate(' + b.hue + 'deg)'"
+  >
+    <div class="butterfly" [style.transform]="'scale(' + b.scale + ')'">
+      <div class="wing wing-left" [style.filter]="'hue-rotate(' + b.hue + 'deg)'"></div>
+      <div class="wing wing-right" [style.filter]="'hue-rotate(' + b.hue + 'deg)'"></div>
+      <div class="body"></div>
+    </div>
+  </div>
+
+  <!-- Sparkle particles -->
+  <div *ngFor="let s of sparkles" class="sparkle"
+    [style.left.%]="s.left"
+    [style.top.%]="s.top"
+    [style.animation-delay.s]="s.delay"
+    [style.animation-duration.s]="s.duration"
+  ></div>
+
+  <!-- Floating orbs -->
+  <div *ngFor="let o of orbs" class="floating-orb"
+    [style.left.%]="o.left"
+    [style.animation-delay.s]="o.delay"
+    [style.animation-duration.s]="o.duration"
+    [style.width.px]="o.size"
+    [style.height.px]="o.size"
+    [style.background]="o.color"
   ></div>
 </div>
