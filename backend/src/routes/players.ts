@@ -69,8 +69,9 @@ playersRouter.get('/:playerId', async (req, res, next) => {
     let flickCount = 0;
 
     recentSuspicious.forEach(event => {
-      if (event.cheatType) {
-        cheatTypeCounts[event.cheatType] = (cheatTypeCounts[event.cheatType] || 0) + 1;
+      const cheatType = event.cheatType || event.ruleTriggered;
+      if (cheatType) {
+        cheatTypeCounts[cheatType] = (cheatTypeCounts[cheatType] || 0) + 1;
       }
       totalSpeed += event.speed || 0;
       if (event.isFlick) flickCount++;
@@ -98,7 +99,8 @@ playersRouter.get('/:playerId', async (req, res, next) => {
       behaviorValues,
       recentDetections: recentSuspicious.map(item => ({
         eventId: item._id?.toString(),
-        cheatType: item.cheatType,
+        cheatType: item.cheatType || item.ruleTriggered || 'Unknown',
+        cheatScore: item.cheatScore,
         speed: item.speed,
         timestamp: item.timestamp
       }))

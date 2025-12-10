@@ -41,7 +41,8 @@ detectionsRouter.get('/', async (req, res, next) => {
       deltaX: item.deltaX,
       deltaY: item.deltaY,
       timestamp: item.timestamp,
-      cheatType: item.cheatType,
+      cheatType: item.cheatType || item.ruleTriggered || 'Unknown',
+      cheatScore: item.cheatScore,
       isFlick: item.isFlick
     }));
 
@@ -71,7 +72,8 @@ detectionsRouter.get('/live', async (_req, res, next) => {
       deltaX: item.deltaX,
       deltaY: item.deltaY,
       timestamp: item.timestamp,
-      cheatType: item.cheatType,
+      cheatType: item.cheatType || item.ruleTriggered || 'Unknown',
+      cheatScore: item.cheatScore,
       isFlick: item.isFlick
     }));
 
