@@ -30,24 +30,26 @@ export class OverviewPageComponent {
   data_perMinute: number[] = [];
   cheat_labels: string[] = [];
   cheat_counts: number[] = [];
-  hourly_heatmap: number[][] = [];
+  hourly_heatmap: number[] = [];
 
   constructor(private statsService: StatsService) {
     this.stats$.subscribe(s => {
       if (!s) return;
 
-     this.labels_perMinute =
-  s.perMinuteSuspicious?.map((x: { minute: string; count: number }) => x.minute) ?? [];
+      this.labels_perMinute =
+        s.perMinuteSuspicious?.map((x: { minute: string; count: number }) => x.minute) ?? [];
 
-this.data_perMinute =
-  s.perMinuteSuspicious?.map((x: { minute: string; count: number }) => x.count) ?? [];
+      this.data_perMinute =
+        s.perMinuteSuspicious?.map((x: { minute: string; count: number }) => x.count) ?? [];
 
-this.cheat_labels =
-  s.cheatDistribution?.map((c: { cheatType: string; count: number }) => c.cheatType) ?? [];
+      this.cheat_labels =
+        s.cheatDistribution?.map((c: { cheatType: string; count: number }) => c.cheatType) ?? [];
 
-this.cheat_counts =
-  s.cheatDistribution?.map((c: { cheatType: string; count: number }) => c.count) ?? [];
+      this.cheat_counts =
+        s.cheatDistribution?.map((c: { cheatType: string; count: number }) => c.count) ?? [];
 
+      // Assign hourly heatmap data (array of 24 numbers)
+      this.hourly_heatmap = s.hourlyHeatmap ?? Array(24).fill(0);
     });
   }
 }
