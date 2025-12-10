@@ -1,0 +1,89 @@
+<div class="live-feed-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <h1 class="page-title">
+        <span class="title-icon">📡</span>
+        Live Detection Feed
+      </h1>
+      <p class="page-subtitle">Real-time stream of suspicious player activity and cheat detections</p>
+    </div>
+    
+    <!-- Live indicator -->
+    <div class="live-indicator">
+      <span class="live-dot"></span>
+      <span class="live-text">LIVE</span>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row">
+    <app-glow-card class="stat-mini">
+      <div class="stat-content">
+        <span class="stat-value total">{{ totalEvents }}</span>
+        <span class="stat-label">Recent Events</span>
+      </div>
+    </app-glow-card>
+    
+    <app-glow-card class="stat-mini">
+      <div class="stat-content critical">
+        <span class="stat-value">{{ criticalCount }}</span>
+        <span class="stat-label">Critical</span>
+      </div>
+    </app-glow-card>
+    
+    <app-glow-card class="stat-mini">
+      <div class="stat-content high">
+        <span class="stat-value">{{ highCount }}</span>
+        <span class="stat-label">High</span>
+      </div>
+    </app-glow-card>
+    
+    <app-glow-card class="stat-mini">
+      <div class="stat-content medium">
+        <span class="stat-value">{{ mediumCount }}</span>
+        <span class="stat-label">Medium</span>
+      </div>
+    </app-glow-card>
+  </div>
+
+  <!-- Main Feed -->
+  <app-glow-card class="main-feed-card">
+    <div class="feed-header">
+      <h2 class="feed-title">
+        <span class="feed-icon">🎮</span>
+        Suspicious Activity Stream
+      </h2>
+      <div class="feed-actions">
+        <button class="action-btn refresh" title="Auto-refreshing">
+          <span class="refresh-icon">🔄</span>
+          Auto-Refresh
+        </button>
+      </div>
+    </div>
+    
+    <div class="feed-container">
+      <app-live-feed-list [events]="(liveFeed$ | async) || []"></app-live-feed-list>
+    </div>
+  </app-glow-card>
+
+  <!-- Legend -->
+  <div class="legend-row">
+    <div class="legend-item critical">
+      <span class="legend-dot"></span>
+      <span class="legend-text">Critical (Aimbot, Snap)</span>
+    </div>
+    <div class="legend-item high">
+      <span class="legend-dot"></span>
+      <span class="legend-text">High (Speed, Wallhack)</span>
+    </div>
+    <div class="legend-item medium">
+      <span class="legend-dot"></span>
+      <span class="legend-text">Medium (Recoil, Robotic)</span>
+    </div>
+    <div class="legend-item low">
+      <span class="legend-dot"></span>
+      <span class="legend-text">Low (Other)</span>
+    </div>
+  </div>
+</div>

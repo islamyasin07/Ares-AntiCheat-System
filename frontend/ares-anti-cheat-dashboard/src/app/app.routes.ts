@@ -27,6 +27,11 @@ export const routes: Routes = [
           import('./features/suspicious/suspicious-events-page.component').then(m => m.SuspiciousEventsPageComponent)
       },
       {
+        path: 'live-feed',
+        loadComponent: () =>
+          import('./features/live-feed/live-feed-page.component').then(m => m.LiveFeedPageComponent)
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./features/analytics/system-analytics-page.component').then(m => m.SystemAnalyticsPageComponent)
