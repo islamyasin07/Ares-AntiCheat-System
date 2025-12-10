@@ -1,19 +1,136 @@
-<div class="space-y-8">
+<div class="player-container">
+  <!-- Header with Player Info -->
+  <div class="player-header">
+    <div class="player-avatar-large">
+      <span class="avatar-letter">{{ playerId.charAt(0).toUpperCase() }}</span>
+      <div class="avatar-ring"></div>
+    </div>
+    <div class="player-info">
+      <h1 class="player-name">Player {{ playerId }}</h1>
+      <div class="player-badges">
+        <span class="badge status" [class.flagged]="playerStatus?.flagged" [class.banned]="playerStatus?.banned">
+          {{ playerStatus?.banned ? '🚫 BANNED' : playerStatus?.flagged ? '🚩 FLAGGED' : '✅ Active' }}
+        </span>
+        <span class="badge warning" *ngIf="(player$ | async)?.riskScore >= 50">⚠️ High Risk</span>
+      </div>
+    </div>
+    <div class="player-actions">
+      <button class="action-btn" *ngIf="!playerStatus?.flagged && !playerStatus?.banned" (click)="flagPlayer()" [disabled]="isActioning">
+        <span>🚩</span> Flag Player
+      </button>
+      <button class="action-btn success" *ngIf="playerStatus?.flagged" (click)="unflagPlayer()" [disabled]="isActioning">
+        <span>✅</span> Remove Flag
+      </button>
+      <button class="action-btn danger" *ngIf="!playerStatus?.banned" (click)="banPlayer()" [disabled]="isActioning">
+        <span>🚫</span> Ban Player
+      </button>
+      <button class="action-btn success" *ngIf="playerStatus?.banned" (click)="unbanPlayer()" [disabled]="isActioning">
+        <span>🔓</span> Unban Player
+      </button>
+    </div>
+  </div>
 
-  <app-glow-card>
-    <h2 class="text-2xl font-orbitron text-neonBlue mb-4">
-      Player {{ playerId }}
-    </h2>
+  <ng-container *ngIf="player$ | async as p">
+    <!-- Stats Overview -->
+    <div class="stats-grid">
+      <div class="stat-card risk" [attr.data-level]="getRiskLevel(p.riskScore)">
+        <div class="stat-icon">🎯</div>
+        <div class="stat-content">
+          <span class="stat-value">{{ p.riskScore }}/100</span>
+          <span class="stat-label">Risk Score</span>
+        </div>
+        <div class="risk-meter">
+          <div class="risk-fill" [style.width.%]="p.riskScore"></div>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">📈</div>
+        <div class="stat-content">
+          <span class="stat-value">{{ totalEvents }}</span>
+          <span class="stat-label">Total Events</span>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">🔍</div>
+        <div class="stat-content">
+          <span class="stat-value">{{ suspiciousCount }}</span>
+          <span class="stat-label">Suspicious</span>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">⏱️</div>
+        <div class="stat-content">
+          <span class="stat-value">{{ lastSeen }}</span>
+          <span class="stat-label">Last Seen</span>
+        </div>
+      </div>
+    </div>
 
-    <section *ngIf="player$ | async as p">
-      <p class="text-softWhite mb-4">Risk Score: {{ p.riskScore }}/100</p>
+    <!-- Behavior Analysis -->
+    <div class="analysis-section">
+      <div class="analysis-card radar-card">
+        <h2 class="card-title">
+          <span class="title-icon">📡</span>
+          Behavior Analysis
+        </h2>
+        <div class="radar-container">
+          <app-ares-radar-chart
+            [labels]="p.behaviorLabels"
+            [data]="p.behaviorValues">
+          </app-ares-radar-chart>
+        </div>
+        <div class="radar-legend">
+          <div class="legend-item" *ngFor="let label of p.behaviorLabels; let i = index">
+            <span class="legend-dot" [style.backgroundColor]="getLegendColor(i)"></span>
+            <span class="legend-label">{{ label }}: {{ p.behaviorValues[i] }}%</span>
+          </div>
+        </div>
+      </div>
 
-      <app-ares-radar-chart
-        [labels]="p.behaviorLabels"
-        [data]="p.behaviorValues">
-      </app-ares-radar-chart>
+      <div class="analysis-card timeline-card">
+        <h2 class="card-title">
+          <span class="title-icon">📋</span>
+          Recent Activity
+        </h2>
+        <div class="timeline">
+          <div class="timeline-item" *ngFor="let event of recentActivity">
+            <div class="timeline-marker" [attr.data-type]="event.type"></div>
+            <div class="timeline-content">
+              <span class="timeline-type">{{ event.type }}</span>
+              <span class="timeline-desc">{{ event.description }}</span>
+              <span class="timeline-time">{{ event.time }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    </section>
-  </app-glow-card>
-
+    <!-- Detection History -->
+    <div class="detections-section">
+      <h2 class="section-title">
+        <span class="title-icon">🚨</span>
+        Detection History
+      </h2>
+      <div class="detections-table">
+        <div class="table-header">
+          <span>Type</span>
+          <span>Score</span>
+          <span>Details</span>
+          <span>Time</span>
+        </div>
+        <div class="table-row" *ngFor="let d of detections">
+          <span class="detection-type" [attr.data-type]="d.type">{{ d.type }}</span>
+          <span class="detection-score">{{ d.score }}%</span>
+          <span class="detection-details">{{ d.details }}</span>
+          <span class="detection-time">{{ d.time }}</span>
+        </div>
+        <div class="empty-state" *ngIf="!detections.length">
+          <span>No detections recorded for this player</span>
+        </div>
+      </div>
+    </div>
+  </ng-container>
 </div>
