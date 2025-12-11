@@ -10,6 +10,7 @@ libraryDependencies ++= Seq(
   // Spark core dependencies
   "org.apache.spark" %% "spark-sql" % "3.5.0",
   "org.apache.spark" %% "spark-streaming" % "3.5.0",
+  "org.mongodb.spark" %% "mongo-spark-connector" % "10.3.0",
   "org.apache.spark" %% "spark-sql-kafka-0-10" % "3.5.0",
   // MongoDB Java Driver (used directly in foreachBatch)
   "org.mongodb" % "mongodb-driver-sync" % "4.11.1",
