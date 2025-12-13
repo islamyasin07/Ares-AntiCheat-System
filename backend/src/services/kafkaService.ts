@@ -1,6 +1,18 @@
 import { spawn } from 'child_process';
 import path from 'path';
+import { retryWithBackoff, RetryConfig, sleep } from '../utils/retryUtils';
+
 const KAFKA_INSPECTOR_PATH = path.join(__dirname, '../../../kafka', 'kafka_inspector.py');
+
+/**
+ * Kafka-specific retry configuration
+ */
+const KAFKA_RETRY_CONFIG: RetryConfig = {
+    maxRetries: 4,
+    initialDelayMs: 1000,
+    maxDelayMs: 16000,
+    backoffMultiplier: 2,
+};
 
 interface TopicInfo {
     name: string;
@@ -19,141 +31,132 @@ interface KafkaTopicsResponse {
 }
 
 /**
+ * Execute Python script with retry and automatic Python version fallback
+ */
+async function executePythonScript(
+    args: string[],
+    label: string = 'Kafka Inspector'
+): Promise<string> {
+    const exeCandidates = ['python', 'python3'];
+
+    return retryWithBackoff(
+        async () => {
+            return new Promise<string>((resolve, reject) => {
+                let lastError: Error | null = null;
+                let tried = 0;
+
+                const tryExecution = async () => {
+                    if (tried >= exeCandidates.length) {
+                        reject(
+                            lastError || new Error('No Python executable found')
+                        );
+                        return;
+                    }
+
+                    const exe = exeCandidates[tried++];
+                    const python = spawn(exe, args);
+                    let stdout = '';
+                    let stderr = '';
+                    let timedOut = false;
+
+                    const timer = setTimeout(() => {
+                        timedOut = true;
+                        python.kill();
+                    }, 5000);
+
+                    python.stdout.on('data', (data) => {
+                        stdout += data.toString();
+                    });
+
+                    python.stderr.on('data', (data) => {
+                        stderr += data.toString();
+                    });
+
+                    python.on('error', (err) => {
+                        clearTimeout(timer);
+                        lastError = err;
+                        if ((err as any).code === 'ENOENT') {
+                            // Python not found, try next candidate
+                            tryExecution();
+                        } else {
+                            reject(err);
+                        }
+                    });
+
+                    python.on('close', (code) => {
+                        clearTimeout(timer);
+
+                        if (timedOut) {
+                            lastError = new Error('Kafka inspector process timed out');
+                            tryExecution(); // Try next Python version
+                            return;
+                        }
+
+                        if (code !== 0) {
+                            lastError = new Error(
+                                `Kafka inspector failed: ${stderr || 'exit code ' + code}`
+                            );
+
+                            // Check if it's a connection error - these might be temporary
+                            if (
+                                stderr &&
+                                /NoBrokersAvailable|NoBrokersAvailableError|Failed to.*connect|Connection refused/i.test(
+                                    stderr
+                                )
+                            ) {
+                                tryExecution(); // Retry on connection errors
+                            } else {
+                                reject(lastError);
+                            }
+                            return;
+                        }
+
+                        resolve(stdout);
+                    });
+                };
+
+                tryExecution();
+            });
+        },
+        KAFKA_RETRY_CONFIG,
+        label
+    );
+}
+
+/**
  * List all available Kafka topics
+ * Uses retry logic with exponential backoff
  */
 export async function listTopics(): Promise<KafkaTopicsResponse> {
-    return new Promise((resolve, reject) => {
-        // Prefer `python`, fall back to `python3` on some systems
-        const exeCandidates = ['python', 'python3'];
-        let tried = 0;
-
-        const trySpawn = () => {
-            const exe = exeCandidates[tried++] || exeCandidates[0];
-            console.log("RUNNING PY:", KAFKA_INSPECTOR_PATH);
-            const python = spawn(exe, [KAFKA_INSPECTOR_PATH, '--topics']);
-            let stdout = '';
-            let stderr = '';
-            let timedOut = false;
-
-            const timer = setTimeout(() => {
-                timedOut = true;
-                python.kill();
-            }, 5000);
-
-            python.stdout.on('data', (data) => {
-                stdout += data.toString();
-            });
-
-            python.stderr.on('data', (data) => {
-                stderr += data.toString();
-            });
-
-            python.on('error', (err) => {
-                clearTimeout(timer);
-                // If executable not found, try next candidate
-                if ((err as any).code === 'ENOENT' && tried < exeCandidates.length) {
-                    trySpawn();
-                    return;
-                }
-                reject(err);
-            });
-
-            python.on('close', (code) => {
-                clearTimeout(timer);
-                if (timedOut) {
-                    // try next python candidate if available
-                    if (tried < exeCandidates.length) {
-                        trySpawn();
-                        return;
-                    }
-                    reject(new Error('Kafka inspector timed out'));
-                    return;
-                }
-
-                if (code !== 0) {
-                    // If the inspector logged a clear connection error, return empty list instead of failing
-                    if (stderr && /NoBrokersAvailable|NoBrokersAvailableError|Failed to.*connect|Connection refused/i.test(stderr)) {
-                        resolve({ topics: [] });
-                        return;
-                    }
-                    reject(new Error(`Kafka inspector failed: ${stderr || 'exit code ' + code}`));
-                    return;
-                }
-
-                const topics = parseTopics(stdout);
-                resolve({ topics });
-            });
-        };
-
-        trySpawn();
-    });
+    try {
+        const stdout = await executePythonScript(
+            [KAFKA_INSPECTOR_PATH, '--topics'],
+            'Kafka List Topics'
+        );
+        const topics = parseTopics(stdout);
+        return { topics };
+    } catch (error) {
+        console.error('Failed to list Kafka topics:', error);
+        return { topics: [] };
+    }
 }
 
 /**
  * Describe a specific Kafka topic with partition details
+ * Uses retry logic with exponential backoff
  */
 export async function describeTopic(topicName: string): Promise<TopicInfo> {
-    return new Promise((resolve, reject) => {
-        const exeCandidates = ['python', 'python3'];
-        let tried = 0;
-
-        const trySpawn = () => {
-            const exe = exeCandidates[tried++] || exeCandidates[0];
-            const python = spawn(exe, [KAFKA_INSPECTOR_PATH, '--describe', topicName]);
-            let stdout = '';
-            let stderr = '';
-            let timedOut = false;
-
-            const timer = setTimeout(() => {
-                timedOut = true;
-                python.kill();
-            }, 5000);
-
-            python.stdout.on('data', (data) => {
-                stdout += data.toString();
-            });
-
-            python.stderr.on('data', (data) => {
-                stderr += data.toString();
-            });
-
-            python.on('error', (err) => {
-                clearTimeout(timer);
-                if ((err as any).code === 'ENOENT' && tried < exeCandidates.length) {
-                    trySpawn();
-                    return;
-                }
-                reject(err);
-            });
-
-            python.on('close', (code) => {
-                clearTimeout(timer);
-                if (timedOut) {
-                    if (tried < exeCandidates.length) {
-                        trySpawn();
-                        return;
-                    }
-                    reject(new Error('Kafka inspector timed out'));
-                    return;
-                }
-
-                if (code !== 0) {
-                    if (stderr && /NoBrokersAvailable|NoBrokersAvailableError|Failed to.*connect|Connection refused/i.test(stderr)) {
-                        // return empty topic info when broker unavailable
-                        resolve({ name: topicName, partitions: [] });
-                        return;
-                    }
-                    reject(new Error(`Failed to describe topic: ${stderr || 'exit code ' + code}`));
-                    return;
-                }
-
-                const topicInfo = parseTopicDescription(topicName, stdout);
-                resolve(topicInfo);
-            });
-        };
-
-        trySpawn();
-    });
+    try {
+        const stdout = await executePythonScript(
+            [KAFKA_INSPECTOR_PATH, '--describe', topicName],
+            `Kafka Describe Topic: ${topicName}`
+        );
+        const topicInfo = parseTopicDescription(topicName, stdout);
+        return topicInfo;
+    } catch (error) {
+        console.error(`Failed to describe Kafka topic '${topicName}':`, error);
+        return { name: topicName, partitions: [] };
+    }
 }
 
 /**
