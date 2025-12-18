@@ -106,12 +106,94 @@ Files of interest
 - `kafka/docker-compose.yml` — Kafka & Zookeeper
 - `kafka/mongo-compose.yml` — MongoDB compose (or `ares-anticheat/docker-compose.yml`)
 - `docs/trello_import.csv` — Trello import of project tasks
+- `docs/bloom_filter_implementation.md` — Bloom Filter documentation
+- `docs/BLOOM_FILTER_QUICK_REFERENCE.md` — Bloom Filter quick start
 
-Contact / ownership
-- Repo owner: `islamyasin07`
-- Open issues or tasks in the Trello board or create GitHub issues for larger items (connector, CI, dockerization).
+## 🆕 Bloom Filter Implementation
 
-If you want, I can now:
+The system now includes a comprehensive **Bloom Filter** system for:
+- ✅ **Duplicate Detection** - Prevent reprocessing the same events
+- ✅ **Threat Tracking** - Fast O(1) lookup for flagged players
+- ✅ **Memory Efficiency** - Only ~87 KB overhead for millions of elements
+- ✅ **Automatic Persistence** - Bloom filter state saved to disk every 10 minutes
+
+### Quick Start
+```bash
+# Check for duplicate event
+curl -X POST http://localhost:3000/api/events \
+  -H "Content-Type: application/json" \
+  -d '{"playerId":"p1","eventType":"mouseMove","timestamp":1702000000}'
+
+# Report a detection (auto-flags player)
+curl -X POST http://localhost:3000/api/detections \
+  -H "Content-Type: application/json" \
+  -d '{"playerId":"p1","cheatType":"Aimbot-Speed","cheatScore":85,"timestamp":1702000001}'
+
+# Get player threat profile
+curl http://localhost:3000/api/detections/player/p1
+
+# View statistics
+curl http://localhost:3000/api/admin/bloom-filters/stats
+```
+
+### New API Endpoints
+
+**Event Deduplication:**
+- `POST /api/events` - Ingest event with Bloom Filter dedup
+- `GET /api/events/dedup/stats` - Deduplication statistics
+
+**Detection Tracking:**
+- `POST /api/detections` - Report detection with threat flagging
+- `GET /api/detections/player/:playerId` - Threat profile
+- `GET /api/detections/threats/stats` - Threat statistics
+
+**Player Management:**
+- `POST /api/players/:playerId/flag` - Manually flag player
+- `GET /api/players/:playerId/threat-profile` - Detailed threat profile
+- `GET /api/players/bloom/stats` - Filter statistics
+- `POST /api/players/bloom/reset` - Reset filters
+
+**Admin Control:**
+- `GET /api/admin/bloom-filters/stats` - All statistics
+- `POST /api/admin/bloom-filters/save` - Save to disk
+- `POST /api/admin/bloom-filters/load` - Load from disk
+- `POST /api/admin/bloom-filters/reset-all` - Reset everything
+
+### Key Features
+- **Zero False Negatives** - If an element is stored, it WILL be found
+- **Fast Queries** - O(1) time complexity (~microseconds)
+- **Auto-Save** - Persisted to `./bloom-filter-data/` every 10 minutes
+- **Auto-Reset** - Filters reset automatically (1-2 hour intervals)
+- **Low Memory** - ~87 KB total for all filters
+
+### Architecture
+
+```
+Event Flow:
+Client → POST /api/events
+         ↓
+    Bloom Filter dedup check
+    ├─ Duplicate? → 409 Conflict
+    └─ New? → Save to DB
+
+Detection Flow:
+Client → POST /api/detections
+         ↓
+    Bloom Filter dedup check
+    ├─ Flag player based on threat type
+    ├─ Mark high-risk if score ≥ 80
+    └─ Save to DB
+
+Player Query:
+GET /api/players/:playerId
+├─ DB stats
+├─ Bloom Filter threat profile
+└─ Combined response
+```
+
+For detailed documentation, see:
+- [Bloom Filter Implementation](docs/bloom_filter_implementation.md)
+- [Quick Reference](docs/BLOOM_FILTER_QUICK_REFERENCE.md)
 - Add a `scripts/run-stack.ps1` that starts Docker, waits for services, and launches the generator.
 - Add `mongo-spark-connector` to `build.sbt` and switch the sink to `format("mongo")`.
 - Create a small integration test script to automatically validate end-to-end flow.
