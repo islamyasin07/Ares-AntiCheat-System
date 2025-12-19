@@ -6,6 +6,7 @@ import { getDeduplicationService } from '../services/deduplicationService';
 import { getSuspiciousPlayerService } from '../services/suspiciousPlayerService';
 
 export const detectionsRouter = Router();
+
 const deduplicationService = getDeduplicationService();
 const suspiciousPlayerService = getSuspiciousPlayerService();
 
@@ -16,7 +17,10 @@ const querySchema = z.object({
   cheatType: z.string().optional(),
 });
 
-// GET /api/detections - Suspicious events (detections) from Spark
+// ========================================
+// GET /api/detections
+// Paginated historical detections
+// ========================================
 detectionsRouter.get('/', async (req, res, next) => {
   try {
     const { playerId, page, limit, cheatType } = querySchema.parse(req.query);
@@ -36,7 +40,6 @@ detectionsRouter.get('/', async (req, res, next) => {
     const items = await cursor.toArray();
     const total = await coll.countDocuments(filter);
 
-    // Transform to match frontend GameEvent interface
     const transformed = items.map(item => ({
       eventId: item._id?.toString(),
       eventType: item.eventType || 'mouseMove',
@@ -47,7 +50,8 @@ detectionsRouter.get('/', async (req, res, next) => {
       timestamp: item.timestamp,
       cheatType: item.cheatType || item.ruleTriggered || 'Unknown',
       cheatScore: item.cheatScore,
-      isFlick: item.isFlick
+      isFlick: item.isFlick,
+      source: item.cheatScore !== undefined ? 'ml' : 'spark'
     }));
 
     res.json({ page, limit, total, items: transformed });
@@ -56,7 +60,10 @@ detectionsRouter.get('/', async (req, res, next) => {
   }
 });
 
-// GET /api/detections/live - Recent suspicious events for live feed
+// ========================================
+// GET /api/detections/live
+// Stateful live feed (Bloom / cached logic)
+// ========================================
 detectionsRouter.get('/live', async (_req, res, next) => {
   try {
     const db = await getDb();
@@ -78,7 +85,8 @@ detectionsRouter.get('/live', async (_req, res, next) => {
       timestamp: item.timestamp,
       cheatType: item.cheatType || item.ruleTriggered || 'Unknown',
       cheatScore: item.cheatScore,
-      isFlick: item.isFlick
+      isFlick: item.isFlick,
+      source: item.cheatScore !== undefined ? 'ml' : 'spark'
     }));
 
     res.json(transformed);
@@ -86,7 +94,13 @@ detectionsRouter.get('/live', async (_req, res, next) => {
     next(err);
   }
 });
-detectionsRouter.get('/live', async (_req, res, next) => {
+
+// ========================================
+// GET /api/detections/live-db
+// 🔥 TRUE LIVE STREAM (NO CACHE, NO BLOOM)
+// Reads directly from MongoDB
+// ========================================
+detectionsRouter.get('/live-db', async (_req, res, next) => {
   try {
     const db = await getDb();
     const coll = db.collection(config.collections.suspicious);
@@ -107,19 +121,22 @@ detectionsRouter.get('/live', async (_req, res, next) => {
       timestamp: item.timestamp,
       cheatType: item.cheatType || item.ruleTriggered || 'Unknown',
       cheatScore: item.cheatScore,
-      isFlick: item.isFlick
+      isFlick: item.isFlick,
+      source: item.cheatScore !== undefined ? 'ml' : 'spark'
     }));
 
+    // 🚫 Disable any HTTP caching
+    res.set('Cache-Control', 'no-store');
     res.json(transformed);
   } catch (err) {
     next(err);
   }
 });
 
-/**
- * POST /api/detections - Report a new detection with Bloom Filter deduplication
- * Automatically flags suspicious players and prevents duplicate reports
- */
+// ========================================
+// POST /api/detections
+// Insert detection with Bloom deduplication
+// ========================================
 const detectionSchema = z.object({
   playerId: z.string().min(1),
   cheatType: z.string(),
@@ -136,7 +153,6 @@ detectionsRouter.post('/', async (req, res, next) => {
   try {
     const detection = detectionSchema.parse(req.body);
 
-    // Check for duplicate using Bloom Filter
     const isDuplicate = deduplicationService.isSuspiciousDuplicate(
       detection.playerId,
       detection.cheatType,
@@ -150,7 +166,7 @@ detectionsRouter.post('/', async (req, res, next) => {
       });
     }
 
-    // Flag the player as suspicious based on threat type
+    // Flag player based on cheat type
     if (detection.cheatType.includes('Aimbot')) {
       suspiciousPlayerService.flagAimbotSuspect(detection.playerId);
     } else if (detection.cheatType.includes('Recoil')) {
@@ -163,12 +179,10 @@ detectionsRouter.post('/', async (req, res, next) => {
       suspiciousPlayerService.flagPlayer(detection.playerId);
     }
 
-    // Mark as high-risk if high confidence
     if (detection.cheatScore >= 80) {
       suspiciousPlayerService.markAsHighRisk(detection.playerId);
     }
 
-    // Save to database
     const db = await getDb();
     const coll = db.collection(config.collections.suspicious);
 
@@ -188,26 +202,25 @@ detectionsRouter.post('/', async (req, res, next) => {
   }
 });
 
-/**
- * GET /api/detections/player/:playerId - Get threat profile for a player
- */
+// ========================================
+// GET /api/detections/player/:playerId
+// Threat profile from Bloom/state
+// ========================================
 detectionsRouter.get('/player/:playerId', async (req, res, next) => {
   try {
     const { playerId } = z.object({ playerId: z.string().min(1) }).parse(req.params);
-
     const threatProfile = suspiciousPlayerService.getThreatProfile(playerId);
-
     res.json(threatProfile);
   } catch (err) {
     next(err);
   }
 });
 
-/**
- * GET /api/detections/threats/stats - Get bloom filter statistics
- */
+// ========================================
+// GET /api/detections/threats/stats
+// Bloom filter statistics
+// ========================================
 detectionsRouter.get('/threats/stats', (_req, res) => {
   const stats = suspiciousPlayerService.getStats();
   res.json(stats);
 });
-
