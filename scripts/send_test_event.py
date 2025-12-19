@@ -1,0 +1,37 @@
+import json
+from kafka import KafkaProducer
+
+producer = KafkaProducer(bootstrap_servers='localhost:9092', value_serializer=lambda v: json.dumps(v).encode('utf-8'))
+
+event = {
+  "eventType": "AIM",
+  "player_id": "TEST_CHEATER_KAFKA",
+  "timestamp": "2025-12-19T22:35:00Z",
+  "unix_timestamp": 1760000000000,
+  "aim_snap_angle": 85,
+  "aim_snap_speed": 200,
+  "tracking_smoothness": 0.15,
+  "is_flick_shot": True,
+  "time_to_target_ms": 50,
+  "aim_linearity": 0.95,
+  "acceleration_variance": 0.1,
+  "aim_corrections_count": 1,
+  "recoil_recovery_score": 0.6,
+  "spray_pattern_score": 0.5,
+  "time_between_shots_ms": 60,
+  "first_shot_accuracy": 0.92,
+  "spray_transfer_speed": 0.9,
+  "session_accuracy": 0.9,
+  "session_headshot_ratio": 0.7,
+  "kills_per_minute": 3.0,
+  "deaths_per_minute": 0.2,
+  "session_kd_ratio": 15.0,
+  "movement_speed": 230,
+  "direction_changes_per_sec": 0.5,
+  "reaction_time_ms": 80,
+  "time_to_kill_ms": 200
+}
+
+producer.send('player-events', event)
+producer.flush()
+print('sent')
