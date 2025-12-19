@@ -295,3 +295,152 @@ mlRouter.post('/analyze/realtime', async (req: Request, res: Response) => {
     res.status(500).json({ error: (error as Error).message });
   }
 });
+
+// ========================================
+// ML Detections Endpoints (from kafka_ml_consumer -> ml_detections)
+// ========================================
+
+// GET /api/ml/detections - Paginated ML detections
+mlRouter.get('/detections', async (req: Request, res: Response, next) => {
+  try {
+    const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
+    const limit = Math.min(200, parseInt((req.query.limit as string) || '50', 10));
+    const playerId = (req.query.playerId as string) || undefined;
+    const riskLevel = (req.query.riskLevel as string) || undefined;
+    const minProb = req.query.minProb ? parseFloat(req.query.minProb as string) : undefined;
+
+    const db = await getDb();
+    const coll = db.collection('ml_detections');
+
+    const filter: Record<string, any> = {};
+    if (playerId) filter.player_id = playerId;
+    if (riskLevel) filter.risk_level = riskLevel;
+    if (!isNaN(minProb as number) && typeof minProb === 'number') filter.cheat_probability = { $gte: minProb };
+
+    const cursor = coll.find(filter).sort({ detected_at: -1 }).skip((page - 1) * limit).limit(limit);
+    const items = await cursor.toArray();
+    const total = await coll.countDocuments(filter);
+
+    res.json({ page, limit, total, items });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/ml/detections/live - Latest ML detections (no cache)
+mlRouter.get('/detections/live', async (_req: Request, res: Response, next) => {
+  try {
+    const db = await getDb();
+    const coll = db.collection('ml_detections');
+
+    const items = await coll.find({}).sort({ detected_at: -1 }).limit(50).toArray();
+
+    // Ensure fresh data
+    res.set('Cache-Control', 'no-store');
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/ml/detections/count - Quick stats for ML detections
+mlRouter.get('/detections/count', async (_req: Request, res: Response, next) => {
+  try {
+    const db = await getDb();
+    const coll = db.collection('ml_detections');
+
+    const total = await coll.countDocuments({});
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    const recent = await coll.countDocuments({ detected_at: { $gte: fiveMinAgo } });
+    const highRisk = await coll.countDocuments({ risk_level: { $in: ['high', 'critical'] } });
+
+    res.json({ total, recent, highRisk });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/ml/detections/player/:playerId - ML detections for a player
+mlRouter.get('/detections/player/:playerId', async (req: Request, res: Response, next) => {
+  try {
+    const { playerId } = req.params;
+    const db = await getDb();
+    const coll = db.collection('ml_detections');
+
+    const items = await coll.find({ player_id: playerId }).sort({ detected_at: -1 }).limit(200).toArray();
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/ml/seed - Insert sample ML detections (dev helper)
+mlRouter.post('/seed', async (_req: Request, res: Response, next) => {
+  try {
+    const db = await getDb();
+    const coll = db.collection('ml_detections');
+
+    const now = Date.now();
+    const samplePlayers = ['P_TEST_01', 'P_TEST_02', 'P_TEST_03', 'P_TEST_04', 'P_TEST_05'];
+    const docs = [] as any[];
+    for (let i = 0; i < 12; i++) {
+      const p = samplePlayers[Math.floor(Math.random() * samplePlayers.length)];
+      const prob = Math.round(Math.random() * 100) / 100;
+      let rl = 'low';
+      if (prob >= 0.9) rl = 'critical';
+      else if (prob >= 0.7) rl = 'high';
+      else if (prob >= 0.5) rl = 'medium';
+
+      docs.push({
+        player_id: p,
+        detected_at: now - Math.floor(Math.random() * 300000),
+        cheat_probability: prob,
+        risk_level: rl,
+        confidence: Math.round((prob + Math.random() * (1 - prob)) * 100) / 100,
+        ruleTriggered: 'ML-Seed',
+        source: 'ml_model',
+        details: { note: 'seeded detection for UI testing' }
+      });
+    }
+
+    const r = await coll.insertMany(docs);
+    res.json({ success: true, inserted: r.insertedCount });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/ml/seed - Dev helper: insert sample ML detections for UI testing (non-production)
+mlRouter.post('/seed', async (_req: Request, res: Response, next) => {
+  try {
+    const env = process.env.NODE_ENV || 'development';
+    if (env === 'production') return res.status(403).json({ error: 'Forbidden in production' });
+
+    const db = await getDb();
+    const coll = db.collection('ml_detections');
+
+    const now = Date.now();
+    const samplePlayers = ['P_UI_01','P_UI_02','P_UI_03','P_UI_04','P_UI_05'];
+    const docs = [];
+    for (let i=0;i<20;i++){
+      const p = samplePlayers[Math.floor(Math.random()*samplePlayers.length)];
+      const prob = Math.round(Math.random()*100)/100;
+      const rl = prob>=0.9? 'critical' : prob>=0.7? 'high' : prob>=0.5? 'medium' : 'low';
+      docs.push({
+        player_id: p,
+        detected_at: now - Math.floor(Math.random()*1000*60*10),
+        cheat_probability: prob,
+        risk_level: rl,
+        confidence: Math.round((prob + Math.random()*(1-prob))*100)/100,
+        ruleTriggered: 'ML-Seed-HTTP',
+        source: 'ml_model',
+        details: { note: 'seeded via /api/ml/seed' }
+      });
+    }
+
+    const r = await coll.insertMany(docs);
+    res.json({ inserted: r.insertedCount, total: await coll.countDocuments({}) });
+  } catch (err) {
+    next(err);
+  }
+});
