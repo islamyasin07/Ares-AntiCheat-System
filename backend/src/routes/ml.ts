@@ -102,14 +102,14 @@ mlRouter.get('/analyze/player/:playerId', async (req: Request, res: Response) =>
   try {
     const { playerId } = req.params;
     const db = await getDb();
-    
-    // Fetch player events from MongoDB
-    const events = await db.collection('detections')
+
+    // Fetch player events from MongoDB (use backend config to match Spark output)
+    const events = await db.collection(require('../config').config.collections.events)
       .find({ playerId })
       .sort({ timestamp: -1 })
       .limit(50)
       .toArray();
-    
+
     if (events.length === 0) {
       return res.status(404).json({ error: 'No events found for player' });
     }
@@ -187,8 +187,8 @@ mlRouter.get('/scan/all', async (req: Request, res: Response) => {
     const db = await getDb();
     const limit = parseInt(req.query.limit as string) || 100;
     
-    // Get recent detections
-    const detections = await db.collection('detections')
+    // Get recent detections (read suspicious collection produced by Spark)
+    const detections = await db.collection(require('../config').config.collections.suspicious)
       .find({})
       .sort({ timestamp: -1 })
       .limit(limit)

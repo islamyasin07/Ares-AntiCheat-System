@@ -27,8 +27,7 @@ if (require.main === module) {
   app.listen(config.port, () => {
     console.log(`Ares backend listening on http://localhost:${config.port}`);
   });
-} 
-app.listen(config.port, () => {
+}
 
 // Initialize Bloom Filters and load persisted state on startup
 async function initializeBloomFilters() {
