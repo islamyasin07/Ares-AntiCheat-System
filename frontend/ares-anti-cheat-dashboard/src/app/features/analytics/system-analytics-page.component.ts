@@ -15,6 +15,7 @@ import { StatsService, SystemLog } from '../../shared/services/stats.service';
 })
 export class SystemAnalyticsPageComponent implements OnInit, OnDestroy {
   analytics$ = this.statsService.analytics$;
+  stats$ = this.statsService.stats$;
   logs$ = this.statsService.logs$;
   
   // Throughput chart - updated from real data
@@ -57,10 +58,17 @@ export class SystemAnalyticsPageComponent implements OnInit, OnDestroy {
         this.memoryUsage = Math.round(data.memoryUsage || 0);
         this.diskUsage = Math.round(data.diskUsage || 0);
         
-        // Update totals
+        // Update detection rate (from analytics)
         this.detectionRate = data.detectionRate || 0;
-        this.totalEvents = data.totalEvents || 0;
-        this.totalSuspicious = data.totalSuspicious || 0;
+      })
+    );
+
+    // Subscribe to overview stats for realtime totals (faster than analytics)
+    this.subs.push(
+      this.stats$.subscribe(stats => {
+        if (!stats) return;
+        this.totalEvents = stats.totalEvents || 0;
+        this.totalSuspicious = stats.totalSuspicious || 0;
       })
     );
     
