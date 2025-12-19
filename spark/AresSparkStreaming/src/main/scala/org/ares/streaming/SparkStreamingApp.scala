@@ -23,6 +23,8 @@ object SparkStreamingApp {
     val mongoUri = config.getString("mongo.uri")
     val mongoDB  = config.getString("mongo.db")
 
+    println(s"Using Mongo URI: $mongoUri, DB: $mongoDB")
+
     val checkpointSuspicious = config.getString("checkpoint.suspicious")
     val checkpointEvents = config.getString("checkpoint.events")
 
