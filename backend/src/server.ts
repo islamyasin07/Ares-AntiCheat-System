@@ -23,12 +23,6 @@ app.use(errorHandler);
 
 export default app;
 
-if (require.main === module) {
-  app.listen(config.port, () => {
-    console.log(`Ares backend listening on http://localhost:${config.port}`);
-  });
-}
-
 // Initialize Bloom Filters and load persisted state on startup
 async function initializeBloomFilters() {
   try {
@@ -62,12 +56,15 @@ function setupPeriodicPersistence() {
   }, 600000); // 10 minutes
 }
 
-app.listen(config.port, async () => {
-  console.log(`Ares backend listening on http://localhost:${config.port}`);
+// Start server only when module executed directly and run initialization
+if (require.main === module) {
+  app.listen(config.port, async () => {
+    console.log(`Ares backend listening on http://localhost:${config.port}`);
 
-  // Initialize bloom filters
-  await initializeBloomFilters();
+    // Initialize bloom filters
+    await initializeBloomFilters();
 
-  // Setup periodic persistence
-  setupPeriodicPersistence();
-});
+    // Setup periodic persistence
+    setupPeriodicPersistence();
+  });
+}
