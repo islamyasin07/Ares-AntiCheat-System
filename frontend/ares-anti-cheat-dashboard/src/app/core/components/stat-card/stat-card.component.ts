@@ -13,4 +13,5 @@ export class StatCardComponent {
   @Input() value!: number | string;
   @Input() color: string = 'neonBlue';
   @Input() trend?: number;
+  @Input() subtitle?: string;
 }
