@@ -42,6 +42,16 @@ export const routes: Routes = [
           import('./features/analytics-report/analytics-report.component').then(m => m.AnalyticsReportComponent)
       },
       {
+        path: 'ml',
+        loadComponent: () =>
+          import('./features/ml/ml-dashboard.component').then(m => m.MlDashboardComponent)
+      },
+      {
+        path: 'ml/player/:id',
+        loadComponent: () =>
+          import('./features/ml/ml-player-drill.component').then(m => m.MlPlayerDrillComponent)
+      },
+      {
         path: 'settings',
         loadComponent: () =>
           import('./features/settings/settings-page.component').then(m => m.SettingsPageComponent)
