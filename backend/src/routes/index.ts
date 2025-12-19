@@ -4,6 +4,7 @@ import { detectionsRouter } from './detections';
 import { eventsRouter } from './events';
 import { playersRouter } from './players';
 import { adminRouter } from './admin';
+import { mlRouter } from './ml';
 
 export const apiRouter = Router();
 
@@ -12,3 +13,4 @@ apiRouter.use('/detections', detectionsRouter);
 apiRouter.use('/events', eventsRouter);
 apiRouter.use('/players', playersRouter);
 apiRouter.use('/admin', adminRouter);
+apiRouter.use('/ml', mlRouter);

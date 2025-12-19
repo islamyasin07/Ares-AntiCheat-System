@@ -5,6 +5,8 @@ import { config } from './config';
 import { apiRouter } from './routes/index';
 import { errorHandler } from './middleware/error';
 
+declare const require: any;
+
 const app = express();
 app.use(cors({ origin: config.allowOrigin === '*' ? true : config.allowOrigin }));
 app.use(express.json({ limit: '1mb' }));
@@ -14,6 +16,10 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api', apiRouter);
 app.use(errorHandler);
 
-app.listen(config.port, () => {
-  console.log(`Ares backend listening on http://localhost:${config.port}`);
-});
+export default app;
+
+if (require.main === module) {
+  app.listen(config.port, () => {
+    console.log(`Ares backend listening on http://localhost:${config.port}`);
+  });
+} 
