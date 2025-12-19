@@ -2,8 +2,10 @@ import { Router } from 'express';
 import { getDb } from '../db/mongo';
 import { config } from '../config';
 import { z } from 'zod';
+import { getDeduplicationService } from '../services/deduplicationService';
 
 export const eventsRouter = Router();
+const deduplicationService = getDeduplicationService();
 
 const querySchema = z.object({
   playerId: z.string().min(1).optional(),
@@ -53,3 +55,64 @@ eventsRouter.get('/live', async (_req, res, next) => {
     next(err);
   }
 });
+
+/**
+ * POST /api/events - Ingest a new event with deduplication
+ * Uses Bloom Filter to detect and prevent duplicate event processing
+ */
+const eventSchema = z.object({
+  playerId: z.string().min(1),
+  eventType: z.string(),
+  timestamp: z.number(),
+  deltaX: z.number().optional(),
+  deltaY: z.number().optional(),
+  speed: z.number().optional(),
+});
+
+eventsRouter.post('/', async (req, res, next) => {
+  try {
+    const event = eventSchema.parse(req.body);
+
+    // Check for duplicates using Bloom Filter
+    const isDuplicate = deduplicationService.isDuplicate(
+      event.playerId,
+      event.eventType,
+      event.timestamp,
+      event.deltaX,
+      event.deltaY
+    );
+
+    if (isDuplicate) {
+      return res.status(409).json({
+        error: 'Duplicate event detected',
+        isDuplicate: true
+      });
+    }
+
+    // Event is new - save to database
+    const db = await getDb();
+    const coll = db.collection(config.collections.events);
+
+    const result = await coll.insertOne({
+      ...event,
+      createdAt: new Date()
+    });
+
+    res.status(201).json({
+      _id: result.insertedId,
+      ...event,
+      isDuplicate: false
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/events/dedup/stats - Get deduplication statistics
+ */
+eventsRouter.get('/dedup/stats', (_req, res) => {
+  const stats = deduplicationService.getStats();
+  res.json(stats);
+});
+
