@@ -40,6 +40,11 @@ export const routes: Routes = [
         path: 'settings',
         loadComponent: () =>
           import('./features/settings/settings-page.component').then(m => m.SettingsPageComponent)
+      },
+      {
+        path: 'kafka',
+        loadComponent: () =>
+          import('./features/dashboard/kafka-monitoring.component').then(m => m.KafkaMonitoringComponent)
       }
     ]
   }
