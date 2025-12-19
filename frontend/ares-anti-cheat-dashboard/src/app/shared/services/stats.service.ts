@@ -304,4 +304,43 @@ export class StatsService {
       }))
     );
   }
+
+  // ============================================
+  // ML (Machine Learning) Methods
+  // ============================================
+
+  // Check ML service health
+  getMLHealth(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/ml/health`).pipe(
+      catchError(err => of({ status: 'disconnected', error: err.message }))
+    );
+  }
+
+  // Get ML model info
+  getMLModelInfo(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/ml/model/info`).pipe(
+      catchError(err => of({ error: err.message }))
+    );
+  }
+
+  // Analyze a single player with ML
+  analyzePlayerWithML(playerId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/ml/analyze/player/${playerId}`).pipe(
+      catchError(err => of({ error: err.message }))
+    );
+  }
+
+  // Scan all recent detections with ML
+  scanAllWithML(limit = 100): Observable<any> {
+    return this.http.get(`${this.apiUrl}/ml/scan/all?limit=${limit}`).pipe(
+      catchError(err => of({ error: err.message }))
+    );
+  }
+
+  // Real-time ML prediction for an event
+  predictWithML(event: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/ml/analyze/realtime`, event).pipe(
+      catchError(err => of({ error: err.message }))
+    );
+  }
 }

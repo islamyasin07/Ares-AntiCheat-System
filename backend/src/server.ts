@@ -9,6 +9,8 @@ import { getPersistenceManager } from './services/bloomFilterPersistence';
 import { getDeduplicationService } from './services/deduplicationService';
 import { getSuspiciousPlayerService } from './services/suspiciousPlayerService';
 
+declare const require: any;
+
 const app = express();
 app.use(cors({ origin: config.allowOrigin === '*' ? true : config.allowOrigin }));
 app.use(express.json({ limit: '1mb' }));
@@ -18,6 +20,14 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api', apiRouter);
 app.use('/api/v1/analytics', analyticsRouter);
 app.use(errorHandler);
+
+export default app;
+
+if (require.main === module) {
+  app.listen(config.port, () => {
+    console.log(`Ares backend listening on http://localhost:${config.port}`);
+  });
+} 
 app.listen(config.port, () => {
 
 // Initialize Bloom Filters and load persisted state on startup

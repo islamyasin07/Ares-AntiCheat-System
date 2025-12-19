@@ -1,0 +1,46 @@
+{
+  "model_name": "Random Forest",
+  "timestamp": "20251219_173553",
+  "features": [
+    "aim_snap_angle",
+    "aim_snap_speed",
+    "tracking_smoothness",
+    "is_flick_shot",
+    "time_to_target_ms",
+    "aim_linearity",
+    "acceleration_variance",
+    "aim_corrections_count",
+    "recoil_recovery_score",
+    "spray_pattern_score",
+    "time_between_shots_ms",
+    "first_shot_accuracy",
+    "spray_transfer_speed",
+    "session_accuracy",
+    "session_headshot_ratio",
+    "kills_per_minute",
+    "deaths_per_minute",
+    "session_kd_ratio",
+    "movement_speed",
+    "direction_changes_per_sec",
+    "reaction_time_ms",
+    "time_to_kill_ms"
+  ],
+  "metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "roc_auc": 1.0,
+    "confusion_matrix": [
+      [
+        1700,
+        0
+      ],
+      [
+        0,
+        300
+      ]
+    ],
+    "train_time_sec": 0.24
+  }
+}
