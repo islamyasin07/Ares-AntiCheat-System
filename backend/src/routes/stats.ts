@@ -11,11 +11,23 @@ statsRouter.get('/overview', async (_req, res, next) => {
     const eventsCol = db.collection(config.collections.events);
     const suspiciousCol = db.collection(config.collections.suspicious);
 
-    // Get counts
-    const [totalEvents, totalSuspicious] = await Promise.all([
-      eventsCol.estimatedDocumentCount(),
-      suspiciousCol.estimatedDocumentCount()
+    // Get accurate counts from both processed and raw event collections so totals reflect all inserts
+    const eventsProcessedCol = db.collection('events');
+
+    const [eventsRawCount, eventsProcessedCount, totalSuspicious] = await Promise.all([
+      eventsCol.countDocuments({}),
+      eventsProcessedCol.countDocuments({}),
+      suspiciousCol.countDocuments({})
     ]);
+
+    const totalEvents = (eventsRawCount || 0) + (eventsProcessedCount || 0);
+
+    // Debug: log overview counts for quick verification
+    try {
+      console.log('[Stats Overview] eventsRaw=%d eventsProcessed=%d totalEvents=%d totalSuspicious=%d', eventsRawCount, eventsProcessedCount, totalEvents, totalSuspicious);
+    } catch (e) {
+      // ignore logging errors
+    }
 
     // Cheaters today (unique playerIds in suspicious in last 24h)
     // If no recent data, get unique players from all data
@@ -143,22 +155,30 @@ statsRouter.get('/analytics', async (_req, res, next) => {
     const oneMinAgo = Date.now() - 60 * 1000;
     const fiveMinAgo = Date.now() - 5 * 60 * 1000;
     
-    const [recentEvents, recentSuspicious, totalEvents, totalSuspicious] = await Promise.all([
+    // Get recent and total event counts from both raw and processed collections
+    const [recentEventsRaw, recentEventsProcessed, recentSuspicious, eventsRawTotal, eventsProcessedTotal, totalSusp] = await Promise.all([
       eventsCol.countDocuments({ timestamp: { $gte: oneMinAgo } }),
+      db.collection('events').countDocuments({ timestamp: { $gte: oneMinAgo } }),
       suspiciousCol.countDocuments({ timestamp: { $gte: oneMinAgo } }),
-      eventsCol.estimatedDocumentCount(),
-      suspiciousCol.estimatedDocumentCount()
+      eventsCol.countDocuments({}),
+      db.collection('events').countDocuments({}),
+      suspiciousCol.countDocuments({})
     ]);
 
-    // Calculate throughput history (last 10 data points)
+    const recentEvents = (recentEventsRaw || 0) + (recentEventsProcessed || 0);
+    const totalEvents = (eventsRawTotal || 0) + (eventsProcessedTotal || 0);
+    const totalSuspicious = totalSusp;
+
+    // Calculate throughput history (last 10 data points) across both collections
     const throughputHistory: number[] = [];
     for (let i = 9; i >= 0; i--) {
       const start = Date.now() - (i + 1) * 60 * 1000;
       const end = Date.now() - i * 60 * 1000;
-      const count = await eventsCol.countDocuments({
-        timestamp: { $gte: start, $lt: end }
-      });
-      throughputHistory.push(count);
+      const [countRaw, countProcessed] = await Promise.all([
+        eventsCol.countDocuments({ timestamp: { $gte: start, $lt: end } }),
+        db.collection('events').countDocuments({ timestamp: { $gte: start, $lt: end } })
+      ]);
+      throughputHistory.push((countRaw || 0) + (countProcessed || 0));
     }
 
     // Detection rate
