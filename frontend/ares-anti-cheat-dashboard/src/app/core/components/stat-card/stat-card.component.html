@@ -2,6 +2,7 @@
   <div class="stat-background"></div>
   <div class="stat-content">
     <h3 class="stat-title">{{title}}</h3>
+    <div *ngIf="subtitle" class="stat-subtitle">{{ subtitle }}</div>
     <h1 class="stat-value">
       <span class="value-number">{{value | number}}</span>
     </h1>
