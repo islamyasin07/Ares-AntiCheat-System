@@ -17,6 +17,7 @@ export class SidebarComponent {
     { name: 'Players', path: '/players/P01', icon: '👤' },
     { name: 'Analytics', path: '/analytics', icon: '📊' },
     { name: 'Analytics Report', path: '/analytics-report', icon: '📈' },
+    { name: 'AI / ML', path: '/ml', icon: '🤖' },
     { name: 'Kafka Monitor', path: '/kafka', icon: '🔗' },
     { name: 'Settings', path: '/settings', icon: '⚙️' },
   ];
