@@ -8,7 +8,9 @@ export const config = {
   allowOrigin: process.env.ALLOW_ORIGIN || '*',
   // Collections written by Spark
   collections: {
-    events: 'events',       // All parsed events from Spark (written by Spark Streaming)
-    suspicious: 'suspicious',   // Suspicious/detection events from Spark (written by Spark Streaming)
+    // Spark currently writes raw parsed events to `events_raw` and detections to `detections`.
+    // Map backend collections to those so live endpoints show current data.
+    events: 'events_raw',
+    suspicious: 'suspicious',
   }
 };
