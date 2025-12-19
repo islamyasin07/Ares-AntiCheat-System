@@ -4,7 +4,15 @@ version := "0.1"
 
 scalaVersion := "2.12.18"
 
-Compile / run / mainClass := Some("SparkStreamingApp")
+Compile / run / mainClass := Some("org.ares.streaming.SparkStreamingApp")
+// Fork the run process to avoid classpath and memory issues when running Spark locally
+Compile / run / fork := true
+
+// JVM options required to allow Spark to access internal JDK classes when running on Java 17
+Compile / run / javaOptions ++= Seq(
+  "--add-exports", "java.base/sun.nio.ch=ALL-UNNAMED",
+  "--add-opens",   "java.base/java.nio=ALL-UNNAMED"
+)
 
 libraryDependencies ++= Seq(
   // Spark core dependencies
