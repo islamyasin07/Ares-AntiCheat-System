@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import { config } from './config';
 import { apiRouter } from './routes/index';
 import { errorHandler } from './middleware/error';
+import analyticsRouter from './routes/analytics';
 import { getPersistenceManager } from './services/bloomFilterPersistence';
 import { getDeduplicationService } from './services/deduplicationService';
 import { getSuspiciousPlayerService } from './services/suspiciousPlayerService';
@@ -15,7 +16,9 @@ app.use(morgan('dev'));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api', apiRouter);
+app.use('/api/v1/analytics', analyticsRouter);
 app.use(errorHandler);
+app.listen(config.port, () => {
 
 // Initialize Bloom Filters and load persisted state on startup
 async function initializeBloomFilters() {
