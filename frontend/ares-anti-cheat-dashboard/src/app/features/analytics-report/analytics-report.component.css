@@ -1,0 +1,7 @@
+.report-container { padding: 24px; }
+.report-header h2 { color: #A854FF; margin: 0 0 6px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 16px; }
+.card { background: rgba(10,12,20,0.8); padding: 16px; border-radius: 12px; min-height:120px; }
+.card h3 { margin: 0 0 8px 0; color:#9CA3AF; }
+.loading { color: #9CA3AF; }
+

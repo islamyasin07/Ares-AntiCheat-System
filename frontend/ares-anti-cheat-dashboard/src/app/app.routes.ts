@@ -37,6 +37,11 @@ export const routes: Routes = [
           import('./features/analytics/system-analytics-page.component').then(m => m.SystemAnalyticsPageComponent)
       },
       {
+        path: 'analytics-report',
+        loadComponent: () =>
+          import('./features/analytics-report/analytics-report.component').then(m => m.AnalyticsReportComponent)
+      },
+      {
         path: 'settings',
         loadComponent: () =>
           import('./features/settings/settings-page.component').then(m => m.SettingsPageComponent)

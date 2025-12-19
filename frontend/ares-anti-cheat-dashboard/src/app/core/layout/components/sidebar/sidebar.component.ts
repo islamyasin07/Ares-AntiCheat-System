@@ -16,6 +16,7 @@ export class SidebarComponent {
     { name: 'Suspicious Events', path: '/suspicious', icon: '🔍' },
     { name: 'Players', path: '/players/P01', icon: '👤' },
     { name: 'Analytics', path: '/analytics', icon: '📊' },
+    { name: 'Analytics Report', path: '/analytics-report', icon: '📈' },
     { name: 'Kafka Monitor', path: '/kafka', icon: '🔗' },
     { name: 'Settings', path: '/settings', icon: '⚙️' },
   ];
