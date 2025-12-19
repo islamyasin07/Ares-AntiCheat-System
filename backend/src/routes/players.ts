@@ -2,8 +2,10 @@ import { Router } from 'express';
 import { getDb } from '../db/mongo';
 import { config } from '../config';
 import { z } from 'zod';
+import { getSuspiciousPlayerService } from '../services/suspiciousPlayerService';
 
 export const playersRouter = Router();
+const suspiciousPlayerService = getSuspiciousPlayerService();
 
 // GET /api/players - List all players with stats
 playersRouter.get('/', async (_req, res, next) => {
@@ -23,6 +25,10 @@ playersRouter.get('/', async (_req, res, next) => {
           suspiciousCol.countDocuments({ playerId })
         ]);
 
+        // Check if player is flagged using Bloom Filter
+        const isFlagged = suspiciousPlayerService.isPlayerFlagged(playerId);
+        const threatProfile = suspiciousPlayerService.getThreatProfile(playerId);
+
         // Risk score: percentage of suspicious events (capped at 100)
         const riskScore = totalEvents > 0
           ? Math.min(100, Math.round((suspiciousEvents / totalEvents) * 100 * 2))
@@ -35,7 +41,10 @@ playersRouter.get('/', async (_req, res, next) => {
           rank: ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond'][riskScore % 5],
           totalEvents,
           suspiciousEvents,
-          riskScore
+          riskScore,
+          isFlagged,
+          threatCount: threatProfile.threatCount,
+          threats: threatProfile.threats
         };
       })
     );
@@ -90,11 +99,17 @@ playersRouter.get('/:playerId', async (req, res, next) => {
       ? Math.min(100, Math.round((suspiciousEvents / totalEvents) * 100 * 2))
       : 0;
 
+    // Get threat profile using Bloom Filter
+    const threatProfile = suspiciousPlayerService.getThreatProfile(playerId);
+
     res.json({
       playerId,
       riskScore,
       totalEvents,
       suspiciousEvents,
+      isFlagged: threatProfile.isFlagged,
+      threatCount: threatProfile.threatCount,
+      threats: threatProfile.threats,
       behaviorLabels,
       behaviorValues,
       recentDetections: recentSuspicious.map(item => ({
@@ -127,6 +142,76 @@ playersRouter.get('/:playerId/summary', async (req, res, next) => {
       detections,
       lastDetection: lastDetection[0] || null
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/players/bloom/stats - Get Bloom Filter statistics for player tracking
+ */
+playersRouter.get('/bloom/stats', (_req, res) => {
+  const stats = suspiciousPlayerService.getStats();
+  res.json(stats);
+});
+
+/**
+ * POST /api/players/bloom/reset - Reset Bloom Filters
+ * Only use if needed for maintenance
+ */
+playersRouter.post('/bloom/reset', (req, res) => {
+  try {
+    suspiciousPlayerService.reset();
+    res.json({
+      message: 'Bloom filters reset successfully',
+      timestamp: Date.now()
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset bloom filters' });
+  }
+});
+
+/**
+ * POST /api/players/:playerId/flag - Manually flag a player
+ */
+playersRouter.post('/:playerId/flag', async (req, res, next) => {
+  try {
+    const { playerId } = z.object({ playerId: z.string().min(1) }).parse(req.params);
+    const { threatType } = z.object({ threatType: z.string().optional() }).parse(req.body);
+
+    if (threatType) {
+      if (threatType === 'aimbot') {
+        suspiciousPlayerService.flagAimbotSuspect(playerId);
+      } else if (threatType === 'noRecoil') {
+        suspiciousPlayerService.flagNoRecoilSuspect(playerId);
+      } else if (threatType === 'speedhack') {
+        suspiciousPlayerService.flagSpeedhacker(playerId);
+      } else if (threatType === 'wallhack') {
+        suspiciousPlayerService.flagWallhacker(playerId);
+      } else if (threatType === 'highRisk') {
+        suspiciousPlayerService.markAsHighRisk(playerId);
+      } else {
+        suspiciousPlayerService.flagPlayer(playerId);
+      }
+    } else {
+      suspiciousPlayerService.flagPlayer(playerId);
+    }
+
+    const threatProfile = suspiciousPlayerService.getThreatProfile(playerId);
+    res.json(threatProfile);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/players/:playerId/threat-profile - Get detailed threat profile
+ */
+playersRouter.get('/:playerId/threat-profile', (req, res, next) => {
+  try {
+    const { playerId } = z.object({ playerId: z.string().min(1) }).parse(req.params);
+    const threatProfile = suspiciousPlayerService.getThreatProfile(playerId);
+    res.json(threatProfile);
   } catch (err) {
     next(err);
   }
