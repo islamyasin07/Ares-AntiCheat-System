@@ -137,12 +137,33 @@ class MLKafkaConsumer:
         return result
     
     def save_to_mongo(self, events: List[Dict], detections: List[Dict]):
-        """Save events and detections to MongoDB"""
+        """Save events and detections to MongoDB with defensive logging"""
         if events:
-            self.events_collection.insert_many(events)
+            try:
+                print(f"   [Mongo] inserting {len(events)} events...")
+                self.events_collection.insert_many(events)
+                print("   [Mongo] events inserted")
+            except Exception as e:
+                print(f"   [Mongo ERR] events insert failed: {e}")
+                # Fallback: try single inserts to find problematic document
+                for ev in events:
+                    try:
+                        self.events_collection.insert_one(ev)
+                    except Exception as ee:
+                        print(f"   [Mongo ERR] failed insert one: {ee} | ev_id={ev.get('event_id') or ev.get('player_id')}")
         
         if detections:
-            self.detections_collection.insert_many(detections)
+            try:
+                print(f"   [Mongo] inserting {len(detections)} detections...")
+                self.detections_collection.insert_many(detections)
+                print("   [Mongo] detections inserted")
+            except Exception as e:
+                print(f"   [Mongo ERR] detections insert failed: {e}")
+                for d in detections:
+                    try:
+                        self.detections_collection.insert_one(d)
+                    except Exception as ee:
+                        print(f"   [Mongo ERR] failed insert detection: {ee} | player={d.get('player_id')}")
     
     def run(self):
         """Main consumer loop"""
@@ -175,10 +196,12 @@ class MLKafkaConsumer:
                 result = self.process_event(event)
                 self.events_processed += 1
                 
-                # Collect for batch insert
-                batch_events.append(result)
-                
-                # If cheater detected, add to detections
+                # Debug: print prediction summary
+                try:
+                    print(f"   [ML] {result.get('player_id', result.get('playerId', 'unknown'))} -> is_cheater_ml={result.get('is_cheater_ml')} prob={result.get('cheat_probability')} risk={result.get('risk_level')}")
+                except Exception as e:
+                    print(f"   [ML DEBUG ERR] {e}")
+
                 if result.get("is_cheater_ml", False):
                     self.cheaters_detected += 1
                     detection = {
