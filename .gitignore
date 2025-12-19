@@ -55,3 +55,26 @@ dist/
 .metals/
 .scala-build/
 .vscode/
+
+# ML models and artifacts
+ml/models/*.pkl
+ml/models/*.joblib
+ml/models/*.onnx
+ml/models/*.h5
+ml/models/metadata_*.json
+
+# Data generator and spark outputs (auto-generated)
+data-generator/*.log
+spark/AresSparkStreaming/analytics_output/
+spark/AresSparkStreaming/backups/
+
+# Local test data and exports
+backend/bloom-filter-data/
+detection_live.json
+
+# Scripts output and temp
+scripts/*.out
+
+# OS / Editor temp
+*.swp
+*.swo
