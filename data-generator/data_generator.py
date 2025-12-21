@@ -2,14 +2,25 @@ import time
 import json
 import random
 import string
+import os
 from datetime import datetime
 from kafka import KafkaProducer
-from shared.bloomFilter import BloomFilter
 
 producer = KafkaProducer(bootstrap_servers='localhost:9092')
 
-# Initialize Bloom filter for cheater detection
-bloom_filter = BloomFilter(size=1000, hash_count=5)
+# Path to shared bloom input file (JSONL)
+SHARED_BLOOM_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'shared', 'bloom_input.jsonl')
+
+
+def write_to_bloom_input(item):
+    try:
+        os.makedirs(os.path.dirname(SHARED_BLOOM_PATH), exist_ok=True)
+        with open(SHARED_BLOOM_PATH, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(item, default=str) + "\n")
+    except Exception:
+        # best-effort logging; keep generator running
+        pass
+
 
 # --------------------------------------
 # Basic Player Profile (Normal & Cheater)
@@ -51,9 +62,15 @@ class EnhancedPlayerProfile(PlayerProfile):
         self.rank = random.choice(["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Champion"])
         self.country = random.choice(["USA", "UK", "Germany", "India", "China", "Brazil", "Canada"])
 
-        # Add to Bloom filter if cheater
-        if self.is_cheater:
-            bloom_filter.add(self.player_id)
+        # Persist player metadata for centralized Bloom processing
+        write_to_bloom_input({
+            "type": "player",
+            "playerId": self.player_id,
+            "isCheater": bool(self.is_cheater),
+            "name": self.name,
+            "rank": self.rank,
+            "country": self.country
+        })
 
     def generate_name(self):
         return ''.join(random.choices(string.ascii_uppercase, k=3)) + ''.join(random.choices(string.digits, k=3))
@@ -77,7 +94,7 @@ def generate_events(players):
         for p in players:
             event = p.generate_aim_event()
             producer.send("player-events", json.dumps(event).encode("utf-8"))
-        
+
         time.sleep(0.1)  # adjust rate
 
 
@@ -90,6 +107,8 @@ def generate_enhanced_events(players):
         for p in players:
             event = p.generate_aim_event()
             producer.send("player-events", json.dumps(event).encode("utf-8"))
+            # Persist event to shared bloom input for centralized Bloom processing
+            write_to_bloom_input({"type": "event", "event": event})
 
         time.sleep(0.05)  # faster rate for more data
 

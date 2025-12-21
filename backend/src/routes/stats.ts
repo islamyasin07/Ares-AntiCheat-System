@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { getDb } from '../db/mongo';
 import { config } from '../config';
+import fs from 'fs';
+import path from 'path';
 
 export const statsRouter = Router();
 
@@ -143,22 +145,89 @@ statsRouter.get('/analytics', async (_req, res, next) => {
     const oneMinAgo = Date.now() - 60 * 1000;
     const fiveMinAgo = Date.now() - 5 * 60 * 1000;
     
-    const [recentEvents, recentSuspicious, totalEvents, totalSuspicious] = await Promise.all([
+    let [recentEvents, recentSuspicious, totalEvents, totalSuspicious] = await Promise.all([
       eventsCol.countDocuments({ timestamp: { $gte: oneMinAgo } }),
       suspiciousCol.countDocuments({ timestamp: { $gte: oneMinAgo } }),
       eventsCol.estimatedDocumentCount(),
       suspiciousCol.estimatedDocumentCount()
     ]);
 
+    // If no recent data in Mongo, fallback to shared JSONL produced by data-generator
+    if (recentEvents === 0) {
+      try {
+        const sharedPath = path.join(__dirname, '..', '..', '..', 'shared', 'bloom_input.jsonl');
+        if (fs.existsSync(sharedPath)) {
+          const lines = fs.readFileSync(sharedPath, { encoding: 'utf8' }).split('\n').filter(Boolean);
+          totalEvents = 0;
+          totalSuspicious = 0;
+          recentEvents = 0;
+          recentSuspicious = 0;
+          const oneMin = oneMinAgo;
+          const now = Date.now();
+          for (const line of lines) {
+            try {
+              const obj = JSON.parse(line);
+              if (obj.type === 'event' && obj.event) {
+                totalEvents++;
+                const ts = obj.event.timestamp || now;
+                if (ts >= oneMin) recentEvents++;
+                // detection: if playerId exists and app bloom contains the player
+                const playerId = obj.event.playerId;
+                const bloom: any = (_req as any).app && (_req as any).app.locals && (_req as any).app.locals.bloom;
+                if (playerId && bloom && bloom.hasKey) {
+                  if (bloom.hasKey(`player:${playerId}`)) {
+                    totalSuspicious++;
+                    if (ts >= oneMin) recentSuspicious++;
+                  }
+                }
+              } else if (obj.type === 'player') {
+                // treat player records as part of totals (optional)
+              }
+            } catch (e) {
+              // ignore malformed
+            }
+          }
+        }
+      } catch (e) {
+        // ignore fallback errors
+      }
+    }
+
     // Calculate throughput history (last 10 data points)
     const throughputHistory: number[] = [];
-    for (let i = 9; i >= 0; i--) {
-      const start = Date.now() - (i + 1) * 60 * 1000;
-      const end = Date.now() - i * 60 * 1000;
-      const count = await eventsCol.countDocuments({
-        timestamp: { $gte: start, $lt: end }
-      });
-      throughputHistory.push(count);
+    if (recentEvents > 0) {
+      for (let i = 9; i >= 0; i--) {
+        const start = Date.now() - (i + 1) * 60 * 1000;
+        const end = Date.now() - i * 60 * 1000;
+        const count = await eventsCol.countDocuments({
+          timestamp: { $gte: start, $lt: end }
+        });
+        throughputHistory.push(count);
+      }
+    } else {
+      // Build throughput from shared JSONL
+      try {
+        const sharedPath = path.join(__dirname, '..', '..', '..', 'shared', 'bloom_input.jsonl');
+        const now = Date.now();
+        const lines = fs.existsSync(sharedPath) ? fs.readFileSync(sharedPath, 'utf8').split('\n').filter(Boolean) : [];
+        for (let i = 9; i >= 0; i--) {
+          const start = now - (i + 1) * 60 * 1000;
+          const end = now - i * 60 * 1000;
+          let c = 0;
+          for (const line of lines) {
+            try {
+              const obj = JSON.parse(line);
+              if (obj.type === 'event' && obj.event) {
+                const ts = obj.event.timestamp || now;
+                if (ts >= start && ts < end) c++;
+              }
+            } catch (e) {}
+          }
+          throughputHistory.push(c);
+        }
+      } catch (e) {
+        // ignore
+      }
     }
 
     // Detection rate
