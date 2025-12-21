@@ -6,7 +6,7 @@
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <app-stat-card title="Total Events" [value]="s.totalEvents" color="neonBlue"></app-stat-card>
       <app-stat-card title="Suspicious Events" [value]="s.totalSuspicious" color="neonPink"></app-stat-card>
-      <app-stat-card title="Cheaters Today" [value]="s.cheatersToday" color="neonPurple"></app-stat-card>
+      <app-stat-card title="Flagged Players" [value]="s.flaggedPlayers" color="neonPurple"></app-stat-card>
       <app-stat-card title="Live Players" [value]="s.livePlayers" color="softWhite"></app-stat-card>
     </div>
 
@@ -43,6 +43,17 @@
       <div class="h-[90px]">
         <app-ares-heatmap [values]="hourly_heatmap"></app-ares-heatmap>
       </div>
+    </app-glow-card>
+
+    <!-- ROW 3: TOP PLAYERS -->
+    <app-glow-card class="h-[240px]">
+      <h2 class="text-sm mb-2 font-orbitron text-neonPurple">Top Players</h2>
+      <ul class="space-y-1">
+        <li *ngFor="let player of topPlayers$ | async" class="flex justify-between">
+          <span class="text-softWhite">{{ player.name }} ({{ player.rank }})</span>
+          <span class="text-neonPink">{{ player.suspiciousEvents }} suspicious events</span>
+        </li>
+      </ul>
     </app-glow-card>
 
   </ng-container>

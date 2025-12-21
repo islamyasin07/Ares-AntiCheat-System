@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../db/mongo';
 import { config } from '../config';
 import { z } from 'zod';
+const { addItem, mightExist } = require('../utils/bloomFilter');
 
 export const detectionsRouter = Router();
 
@@ -32,6 +33,9 @@ detectionsRouter.get('/', async (req, res, next) => {
     const items = await cursor.toArray();
     const total = await coll.countDocuments(filter);
 
+    // Calculate unique players
+    const uniquePlayers = await coll.distinct('playerId', filter);
+
     // Transform to match frontend GameEvent interface
     const transformed = items.map(item => ({
       eventId: item._id?.toString(),
@@ -46,7 +50,7 @@ detectionsRouter.get('/', async (req, res, next) => {
       isFlick: item.isFlick
     }));
 
-    res.json({ page, limit, total, items: transformed });
+    res.json({ page, limit, total, uniquePlayers: uniquePlayers.length, items: transformed });
   } catch (err) {
     next(err);
   }
@@ -64,6 +68,13 @@ detectionsRouter.get('/live', async (_req, res, next) => {
       .limit(50)
       .toArray();
 
+    // Add player IDs to Bloom filter and check existence
+    items.forEach(item => addItem(item.playerId));
+    const bloomCheck = items.map(item => ({
+      playerId: item.playerId,
+      mightExist: mightExist(item.playerId)
+    }));
+
     const transformed = items.map(item => ({
       eventId: item._id?.toString(),
       eventType: item.eventType || 'mouseMove',
@@ -77,8 +88,9 @@ detectionsRouter.get('/live', async (_req, res, next) => {
       isFlick: item.isFlick
     }));
 
-    res.json(transformed);
+    res.json({ bloomCheck, items: transformed });
   } catch (err) {
+    console.error('Error in /live endpoint:', err);
     next(err);
   }
 });

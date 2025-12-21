@@ -47,22 +47,17 @@ export class SuspiciousEventsPageComponent implements OnDestroy {
     this.applyFilters();
   }
 
+  playerDetails = (event: any) => `${event.playerName} (${event.rank}, ${event.country})`;
+
   applyFilters() {
-    let result = [...this.allEvents];
-    
-    if (this.searchTerm) {
-      result = result.filter(e => 
-        e.playerId?.toLowerCase().includes(this.searchTerm.toLowerCase())
-      );
-    }
-    
-    if (this.activeFilters.length > 0) {
-      result = result.filter(e => 
-        this.activeFilters.includes(e.cheatType)
-      );
-    }
-    
-    this.filteredEvents = result.slice(0, 100); // Limit to 100 for performance
+    const term = this.searchTerm.toLowerCase();
+    this.filteredEvents = this.allEvents.filter(event => {
+      const matchesSearch = event.playerId.toLowerCase().includes(term) ||
+                            event.playerName.toLowerCase().includes(term);
+      const matchesFilter = this.activeFilters.length === 0 ||
+                            this.activeFilters.includes(event.cheatType);
+      return matchesSearch && matchesFilter;
+    });
   }
 
   getPlayerInitial(playerId: string): string {
@@ -114,6 +109,11 @@ export class SuspiciousEventsPageComponent implements OnDestroy {
         this.showToast(result.message || 'Failed to ban player', 'error');
       }
     });
+  }
+
+  viewDetails(event: any) {
+    console.log('Viewing details for event:', event);
+    // Add logic to navigate to a detailed view or display a modal with event details
   }
 
   private showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {

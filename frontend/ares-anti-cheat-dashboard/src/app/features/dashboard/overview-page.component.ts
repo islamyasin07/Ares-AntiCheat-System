@@ -25,6 +25,7 @@ export class OverviewPageComponent {
 
   stats$ = this.statsService.stats$;
   liveFeed$ = this.statsService.liveFeed$;
+  topPlayers$ = this.statsService.topPlayers$;
 
   labels_perMinute: string[] = [];
   data_perMinute: number[] = [];

@@ -58,8 +58,20 @@ object SparkStreamingApp {
       .add("speed", DoubleType)
       .add("isFlick", BooleanType)
 
+    val enhancedSchema = new StructType()
+      .add("eventType", StringType)
+      .add("playerId", StringType)
+      .add("timestamp", LongType)
+      .add("deltaX", DoubleType)
+      .add("deltaY", DoubleType)
+      .add("speed", DoubleType)
+      .add("isFlick", BooleanType)
+      .add("playerName", StringType)
+      .add("rank", StringType)
+      .add("country", StringType)
+
     val parsedDF = rawJson
-      .select(from_json(col("json"), schema).as("data"))
+      .select(from_json(col("json"), enhancedSchema).as("data"))
       .select("data.*")
 
     // -------------------------------------------------------------
@@ -79,10 +91,19 @@ object SparkStreamingApp {
           .when(abs(col("deltaX")) < 0.15 && abs(col("deltaY")) < 0.15 && col("speed") > 30, "Robotic-Aim")
           .otherwise("Unknown")
       )
+      .withColumn("cheatScore",
+        when(col("cheatType") === "Aimbot-Speed", col("speed") / 150.0)
+          .when(col("cheatType") === "Aimbot-Flick", 0.8)
+          .when(col("cheatType") === "Robotic-Aim", 0.7)
+          .otherwise(0.5)
+      )
 
     // -------------------------------------------------------------
     // 1) Write suspicious → MongoDB (per-partition)
     // -------------------------------------------------------------
+    val newCheckpointSuspicious = checkpointSuspicious + "_new"
+    val newCheckpointEvents = checkpointEvents + "_new"
+
     val suspiciousQuery = suspiciousDF.writeStream
       .foreachBatch { (batchDF: org.apache.spark.sql.Dataset[org.apache.spark.sql.Row], batchId: Long) =>
         if (!batchDF.isEmpty) {
@@ -104,7 +125,7 @@ object SparkStreamingApp {
           println(s"Inserted suspicious batch $batchId")
         }
       }
-      .option("checkpointLocation", checkpointSuspicious)
+      .option("checkpointLocation", newCheckpointSuspicious)
       .start()
 
     // -------------------------------------------------------------
@@ -131,7 +152,7 @@ object SparkStreamingApp {
           println(s"Inserted events batch $batchId")
         }
       }
-      .option("checkpointLocation", checkpointEvents)
+      .option("checkpointLocation", newCheckpointEvents)
       .start()
 
     // -------------------------------------------------------------

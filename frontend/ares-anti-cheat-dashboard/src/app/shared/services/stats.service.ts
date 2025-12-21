@@ -59,6 +59,18 @@ export interface SystemInfo {
   };
 }
 
+export interface PlayerDetails {
+  playerId: string;
+  playerName: string;
+  rank: string;
+  country: string;
+  status: 'CLEAN' | 'FLAGGED' | 'BANNED';
+  flagged: boolean;
+  banned: boolean;
+  reason?: string;
+  timestamp?: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class StatsService {
 
@@ -87,6 +99,7 @@ export class StatsService {
   // System logs
   private _logs = new BehaviorSubject<SystemLog[]>([]);
   logs$ = this._logs.asObservable();
+  topPlayers$: any;
 
   constructor(private http: HttpClient) {
     // Initial load
@@ -107,9 +120,13 @@ export class StatsService {
     // Poll live feed every 1 second
     interval(1000).pipe(
       switchMap(() => this.http.get<any[]>(`${this.apiUrl}/detections/live`).pipe(
-        catchError(() => of([]))
+        catchError(() => {
+          console.error('Error fetching suspicious events');
+          return of([]);
+        })
       ))
     ).subscribe(data => {
+      console.log('Fetched suspicious events:', data);
       if (data && data.length) {
         this._live.next(data);
         this._suspicious.next(data);
