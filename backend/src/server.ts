@@ -12,6 +12,8 @@ import { getSuspiciousPlayerService } from './services/suspiciousPlayerService';
 declare const require: any;
 
 const app = express();
+import http from 'http';
+import { setupSocket } from './socket';
 
 /* =========================================================
    🔥 KILL ALL HTTP CACHING – GLOBAL
@@ -108,7 +110,12 @@ function setupPeriodicPersistence() {
    Start Server
 ========================================================= */
 if (require.main === module) {
-  app.listen(config.port, async () => {
+  const server = http.createServer(app);
+
+  // Initialize real-time socket bridge
+  setupSocket(server);
+
+  server.listen(config.port, async () => {
     console.log(`Ares backend listening on http://localhost:${config.port}`);
     await initializeBloomFilters();
     setupPeriodicPersistence();

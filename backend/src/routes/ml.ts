@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getDb } from '../db/mongo';
+import { emitMlDetection } from '../socket';
 
 export const mlRouter = Router();
 
@@ -293,6 +294,22 @@ mlRouter.post('/analyze/realtime', async (req: Request, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/ml/notify - Receive ML consumer notifications and broadcast to UI
+mlRouter.post('/notify', async (req: Request, res: Response) => {
+  try {
+    const payload = req.body;
+    // Broadcast to connected socket clients
+    try {
+      emitMlDetection(payload);
+    } catch (e) {
+      // ignore socket errors
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'notify failed' });
   }
 });
 

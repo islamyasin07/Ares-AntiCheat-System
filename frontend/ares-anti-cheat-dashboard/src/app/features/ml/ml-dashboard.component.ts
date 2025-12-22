@@ -1,8 +1,11 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, AsyncPipe, NgForOf, NgIf } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MlService } from '../../shared/services/ml.service';
 import { SparkService } from '../../shared/services/spark.service';
+import { AnalyticsService } from '../../shared/services/analytics.service';
+import { Router } from '@angular/router';
 import { MlDetection } from '../../shared/types/ml.types';
 import { Subscription, interval } from 'rxjs';
 import { GlowCardComponent } from '../../core/components/glow-card/glow-card.component';
@@ -16,7 +19,7 @@ import { MlLiveFeedComponent } from './ml-live-feed.component';
 @Component({
   selector: 'app-ml-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, GlowCardComponent, StatCardComponent, AresPieChartComponent, AresLineChartComponent, MlOverviewComponent, MlLiveFeedComponent],
+  imports: [CommonModule, FormsModule, RouterModule, GlowCardComponent, StatCardComponent, AresPieChartComponent, AresLineChartComponent, MlOverviewComponent, MlLiveFeedComponent],
   templateUrl: './ml-dashboard.component.html',
   styleUrls: ['./ml-dashboard.component.css'],
   providers: [DatePipe]
@@ -29,7 +32,7 @@ export class MlDashboardComponent implements OnInit, OnDestroy {
   // UI state
   loading = false;
   loadingCounts = false;
-  filters = { playerId: '', riskLevel: '', minProb: 0 };
+  filters = { playerId: '', riskLevel: '', minProb: 0, query: '' };
   emptyBanner = '';
 
   // Pagination
@@ -41,19 +44,26 @@ export class MlDashboardComponent implements OnInit, OnDestroy {
   riskLabels: string[] = [];
   riskData: number[] = [];
   confidenceBins: number[] = [];
+
+  // Extra data powered by analytics service
+  topCheaters: any[] = [];
+  cheatDistribution: any[] = [];
+
   private subs = new Subscription();
 
-  constructor(private ml: MlService, private datePipe: DatePipe) {}
+  constructor(private ml: MlService, private analytics: AnalyticsService, public router: Router, private datePipe: DatePipe) {}
 
   ngOnInit(): void {
     this.showDebug = true; // show debug during initial warmup
     this.loadModelInfo();
     this.loadCounts();
     this.loadDetections();
+    this.loadAnalyticsExtras();
 
     // Poll counts every 2s and live detections every 2s for snappy UI
     this.subs.add(interval(2000).subscribe(() => this.loadCounts()));
     this.subs.add(interval(2000).subscribe(() => this.loadDetections()));
+    this.subs.add(interval(5000).subscribe(() => this.loadAnalyticsExtras()));
   }
 
   ngOnDestroy(): void {
@@ -133,6 +143,16 @@ export class MlDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadAnalyticsExtras() {
+    // Top cheaters and cheat distribution for quick insights
+    this.analytics.getTopCheaters().subscribe((t) => { this.topCheaters = t || []; }, (e) => console.error('topCheaters failed', e));
+    this.analytics.getCheatDistribution().subscribe((d: any[]) => {
+      this.cheatDistribution = d || [];
+      this.riskLabels = this.cheatDistribution.map(x => x.risk_level || x._id || 'unknown');
+      this.riskData = this.cheatDistribution.map(x => x.count || x._c1 || 0);
+    }, (e) => console.error('cheatDistribution failed', e));
+  }
+
   // Force reload both counts and detections
   forceReload() {
     this.statusBanner = 'Refreshing...';
@@ -148,7 +168,7 @@ export class MlDashboardComponent implements OnInit, OnDestroy {
   }
 
   resetFilters() {
-    this.filters = { playerId: '', riskLevel: '', minProb: 0 };
+    this.filters = { playerId: '', riskLevel: '', minProb: 0, query: '' };
     this.applyFilters();
   }
 

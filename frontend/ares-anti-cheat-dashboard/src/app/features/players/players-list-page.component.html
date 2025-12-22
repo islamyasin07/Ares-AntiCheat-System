@@ -1,0 +1,21 @@
+<div class="players-container">
+  <h2>Players</h2>
+  <div *ngIf="loading">Loading players...</div>
+  <div *ngIf="!loading && players.length === 0">No players found</div>
+
+  <div class="players-grid" *ngIf="!loading && players.length">
+    <div class="player-card" *ngFor="let p of players">
+      <a [routerLink]="['/players', p.id]">
+        <div class="avatar">{{ p.nickname.charAt(0).toUpperCase() }}</div>
+        <div class="meta">
+          <div class="name">{{ p.nickname }}</div>
+          <div class="sub">{{ p.country }} • {{ p.rank }}</div>
+        </div>
+        <div class="stats">
+          <div class="risk">Risk: {{ p.riskScore }}%</div>
+          <div class="detections">Detections: {{ p.suspiciousEvents }}</div>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>

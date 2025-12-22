@@ -17,9 +17,9 @@ playersRouter.get('/', async (_req, res, next) => {
     // Get unique players from events
     const playerIds = await eventsCol.distinct('playerId');
 
-    // For each player, calculate stats
+    // For each player, calculate stats (limit to 100 players for dashboard)
     const players = await Promise.all(
-      playerIds.slice(0, 50).map(async (playerId) => {
+      playerIds.slice(0, 100).map(async (playerId) => {
         const [totalEvents, suspiciousEvents] = await Promise.all([
           eventsCol.countDocuments({ playerId }),
           suspiciousCol.countDocuments({ playerId })

@@ -11,6 +11,9 @@ export const config = {
     // Spark currently writes raw parsed events to `events_raw` and detections to `detections`.
     // Map backend collections to those so live endpoints show current data.
     events: 'events_raw',
-    suspicious: 'suspicious',
+    // Spark/Scripts write detections into the `detections` collection.
+    // Older code referenced `suspicious`; default to `detections` so the
+    // backend reads the same collection Spark writes to.
+    suspicious: process.env.SUSPICIOUS_COLLECTION || 'detections',
   }
 };

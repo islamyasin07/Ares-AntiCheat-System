@@ -2,6 +2,7 @@
   <div class="report-header">
     <h2>Analytics Report</h2>
     <p>Batch analytics (Spark CSV) and summaries</p>
+    <button class="refresh-btn" (click)="refresh()">Refresh</button>
   </div>
 
   <div *ngIf="loading" class="loading">Loading analytics...</div>
@@ -11,41 +12,36 @@
       <div class="card">
         <h3>Top Cheaters</h3>
         <div *ngIf="topCheaters.length === 0">No top cheaters data available.</div>
-        <ul *ngIf="topCheaters.length > 0">
+        <ul *ngIf="topCheaters.length > 0" class="top-list">
           <li *ngFor="let p of topCheaters">
-            {{ p.playerId || p._c0 || 'player' }} — {{ p.suspicious_events_count || p.count || p._c1 || 0 }}
+            <div class="player">{{ p.player_id || p.playerId || 'player' }}</div>
+            <div class="meta">Events: <strong>{{ p.count || 0 }}</strong> • AvgProb: <strong>{{ (p.avg_prob || 0) | number:'1.0-2' }}</strong></div>
           </li>
         </ul>
       </div>
 
       <div class="card">
         <h3>Cheat Distribution</h3>
-        <div *ngIf="cheatDistribution.length === 0">No distribution data available.</div>
-        <ul *ngIf="cheatDistribution.length > 0">
-          <li *ngFor="let c of cheatDistribution">
-            {{ c.ruleTriggered || c.cheatType || c._c0 || 'Unknown' }} — {{ c.occurrence || c.count || c._c1 || 0 }}
-          </li>
-        </ul>
+        <div *ngIf="distData.length === 0">No distribution data available.</div>
+        <div *ngIf="distData.length > 0">
+          <app-ares-pie-chart [labels]="distLabels" [data]="distData"></app-ares-pie-chart>
+        </div>
       </div>
 
-      <div class="card">
-        <h3>Hourly Events</h3>
-        <div *ngIf="hourlyEvents.length === 0">No hourly data.</div>
-        <ul *ngIf="hourlyEvents.length > 0">
-          <li *ngFor="let h of hourlyEvents">
-            {{ h.hour || h._c0 || 'hour' }} — {{ h.events_volume || h.count || h._c1 || 0 }}
-          </li>
-        </ul>
+      <div class="card wide">
+        <h3>Hourly Events (last 24h)</h3>
+        <div *ngIf="hourlyData.length === 0">No hourly data.</div>
+        <div *ngIf="hourlyData.length > 0">
+          <app-ares-line-chart [labels]="hourlyLabels" [data]="hourlyData"></app-ares-line-chart>
+        </div>
       </div>
 
-      <div class="card">
-        <h3>Avg Speed</h3>
-        <div *ngIf="avgSpeed.length === 0">No speed data.</div>
-        <ul *ngIf="avgSpeed.length > 0">
-          <li *ngFor="let s of avgSpeed">
-            {{ s.playerId || s._c0 || 'player' }} — {{ s.average_speed || s.avg || s._c1 || 0 }}
-          </li>
-        </ul>
+      <div class="card wide">
+        <h3>Avg Movement Speed (last 24h)</h3>
+        <div *ngIf="speedData.length === 0">No speed data.</div>
+        <div *ngIf="speedData.length > 0">
+          <app-ares-line-chart [labels]="speedLabels" [data]="speedData"></app-ares-line-chart>
+        </div>
       </div>
     </section>
   </div>

@@ -12,6 +12,7 @@ Version: 1.0
 
 import json
 import time
+import os
 import requests
 from datetime import datetime
 from kafka import KafkaConsumer
@@ -26,7 +27,7 @@ from queue import Queue
 
 KAFKA_BOOTSTRAP_SERVERS = 'localhost:9092'
 KAFKA_TOPIC = 'player-events'
-KAFKA_GROUP_ID = 'ares-ml-consumer'
+KAFKA_GROUP_ID = os.getenv('KAFKA_GROUP_ID', 'ares-ml-consumer-debug')
 
 MONGO_URI = 'mongodb://localhost:27018'
 DB_NAME = 'ares_anticheat'
@@ -202,22 +203,25 @@ class MLKafkaConsumer:
                 except Exception as e:
                     print(f"   [ML DEBUG ERR] {e}")
 
+                # Always record ML prediction into ml_detections so the UI can show ML scores
+                ml_doc = {
+                    "player_id": result.get("player_id", result.get("playerId")),
+                    "timestamp": result.get("timestamp"),
+                    "detected_at": datetime.now().isoformat(),
+                    "cheat_probability": result.get("cheat_probability", 0),
+                    "risk_level": result.get("risk_level"),
+                    "confidence": result.get("ml_confidence"),
+                    "ruleTriggered": "ML-Detection" if result.get("is_cheater_ml", False) else "ML-Score",
+                    "source": "ml_model",
+                    "is_cheater_ml": bool(result.get("is_cheater_ml", False)),
+                    "event_data": event
+                }
+
+                batch_detections.append(ml_doc)
+
+                # If an actual cheater was detected, increment counters and highlight
                 if result.get("is_cheater_ml", False):
                     self.cheaters_detected += 1
-                    detection = {
-                        "player_id": result.get("player_id", result.get("playerId")),
-                        "timestamp": result.get("timestamp"),
-                        "detected_at": datetime.now().isoformat(),
-                        "cheat_probability": result.get("cheat_probability", 0),
-                        "risk_level": result.get("risk_level"),
-                        "confidence": result.get("ml_confidence"),
-                        "ruleTriggered": "ML-Detection",
-                        "source": "ml_model",
-                        "event_data": event
-                    }
-                    batch_detections.append(detection)
-                    
-                    # Print detection
                     player = result.get("player_id", result.get("playerId", "unknown"))
                     prob = result.get("cheat_probability", 0)
                     risk = result.get("risk_level", "unknown")

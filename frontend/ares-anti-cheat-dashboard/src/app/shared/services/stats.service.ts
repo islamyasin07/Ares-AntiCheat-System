@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, interval, switchMap, catchError, of, tap, Observable } from 'rxjs';
+import { BehaviorSubject, interval, switchMap, catchError, of, tap, Observable, Subscription } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { LiveFeedService } from './live-feed.service';
 
 export interface SystemLog {
   time: string;
@@ -88,7 +89,7 @@ export class StatsService {
   private _logs = new BehaviorSubject<SystemLog[]>([]);
   logs$ = this._logs.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private liveFeedService: LiveFeedService) {
     // Initial load
     this.refreshStats();
     this.refreshLiveFeed();
@@ -104,15 +105,35 @@ export class StatsService {
       if (data) this._stats.next(data);
     });
 
-    // Poll live feed every 1 second
+    // Poll live feed every 1 second. If API returns empty (or unavailable)
+    // fall back to the local `LiveFeedService` generator so the UI stays dynamic.
+    let fallbackSub: Subscription | undefined;
+
     interval(1000).pipe(
       switchMap(() => this.http.get<any[]>(`${this.apiUrl}/detections/live`).pipe(
         catchError(() => of([]))
       ))
     ).subscribe(data => {
       if (data && data.length) {
-        this._live.next(data);
-        this._suspicious.next(data);
+        // If we had a fallback running, stop it now that real data is back
+        if (fallbackSub) {
+          try { fallbackSub.unsubscribe(); } catch (e) { /* ignore */ }
+          fallbackSub = undefined;
+        }
+        const normalized = this.normalizeEvents(data);
+        this._live.next(normalized);
+        this._suspicious.next(normalized);
+      } else {
+        // Start fallback generator once
+        if (!fallbackSub) {
+          fallbackSub = this.liveFeedService.stream().subscribe(gen => {
+            if (gen && gen.length) {
+              const normalized = this.normalizeEvents(gen);
+              this._live.next(normalized);
+              this._suspicious.next(normalized);
+            }
+          });
+        }
       }
     });
 
@@ -145,8 +166,31 @@ export class StatsService {
     this.http.get<any[]>(`${this.apiUrl}/detections/live`).pipe(
       catchError(() => of([]))
     ).subscribe(data => {
-      this._live.next(data);
-      this._suspicious.next(data);
+      const normalized = this.normalizeEvents(data || []);
+      this._live.next(normalized);
+      this._suspicious.next(normalized);
+    });
+  }
+
+  /**
+   * Normalize incoming events to ensure `cheatScore` is a number in 0..1
+   */
+  private normalizeEvents(events: any[]): any[] {
+    if (!Array.isArray(events)) return [];
+    return events.map(e => {
+      const out = { ...e };
+      let score = out.cheatScore;
+      if (score === undefined || score === null) {
+        out.cheatScore = 0;
+      } else if (typeof score === 'string') {
+        const parsed = Number(score);
+        out.cheatScore = isNaN(parsed) ? 0 : parsed > 1 ? parsed / 100 : parsed;
+      } else if (typeof score === 'number') {
+        out.cheatScore = score > 1 ? score / 100 : score;
+      } else {
+        out.cheatScore = 0;
+      }
+      return out;
     });
   }
 

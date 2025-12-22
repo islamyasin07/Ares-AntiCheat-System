@@ -22,6 +22,11 @@ export const routes: Routes = [
           import('./features/players/player-details-page.component').then(m => m.PlayerDetailsPageComponent)
       },
       {
+        path: 'players',
+        loadComponent: () =>
+          import('./features/players/players-list-page.component').then(m => m.PlayersListPageComponent)
+      },
+      {
         path: 'suspicious',
         loadComponent: () =>
           import('./features/suspicious/suspicious-events-page.component').then(m => m.SuspiciousEventsPageComponent)

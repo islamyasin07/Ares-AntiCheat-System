@@ -13,4 +13,5 @@ export interface GameEvent {
   deltaY: number;
   timestamp: number;
   cheatType?: CheatType;
+  cheatScore?: number; // normalized 0..1
 }

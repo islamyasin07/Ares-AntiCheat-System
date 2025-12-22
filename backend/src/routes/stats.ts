@@ -13,12 +13,20 @@ statsRouter.get('/overview', async (_req, res, next) => {
 
     // Get accurate counts from both processed and raw event collections so totals reflect all inserts
     const eventsProcessedCol = db.collection('events');
+    const detectionsCol = db.collection('detections');
 
-    const [eventsRawCount, eventsProcessedCount, totalSuspicious] = await Promise.all([
+    // Fetch counts. If backend is configured to read from a legacy `suspicious` collection
+    // but Spark writes into `detections`, prefer the live `detections` count so the UI
+    // reflects current data (avoids stale totalSuspicious like 2501).
+    const [eventsRawCount, eventsProcessedCount, configuredSuspiciousCount, detectionsCount] = await Promise.all([
       eventsCol.countDocuments({}),
       eventsProcessedCol.countDocuments({}),
-      suspiciousCol.countDocuments({})
+      suspiciousCol.countDocuments({}),
+      detectionsCol.countDocuments({})
     ]);
+
+    // Use the more up-to-date suspicious count (prefer `detections` if it contains more records)
+    const totalSuspicious = Math.max(configuredSuspiciousCount || 0, detectionsCount || 0);
 
     const totalEvents = (eventsRawCount || 0) + (eventsProcessedCount || 0);
 
@@ -32,11 +40,16 @@ statsRouter.get('/overview', async (_req, res, next) => {
     // Cheaters today (unique playerIds in suspicious in last 24h)
     // If no recent data, get unique players from all data
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-    let cheatersToday = await suspiciousCol.distinct('playerId', {
+    // Choose which suspicious collection to query for recent/analytics data. If `detections`
+    // appears to be the active producer (more documents), use it; otherwise use the configured
+    // suspicious collection.
+    const activeSuspiciousCol = (detectionsCount > configuredSuspiciousCount) ? detectionsCol : suspiciousCol;
+
+    let cheatersToday = await activeSuspiciousCol.distinct('playerId', {
       timestamp: { $gte: oneDayAgo }
     });
     if (cheatersToday.length === 0) {
-      cheatersToday = await suspiciousCol.distinct('playerId');
+      cheatersToday = await activeSuspiciousCol.distinct('playerId');
     }
 
     // Live players (unique playerIds in events in last 5 min)
@@ -46,12 +59,12 @@ statsRouter.get('/overview', async (_req, res, next) => {
       timestamp: { $gte: fiveMinAgo }
     });
     if (livePlayers.length === 0) {
-      livePlayers = await suspiciousCol.distinct('playerId');
+      livePlayers = await activeSuspiciousCol.distinct('playerId');
     }
 
     // Per-minute suspicious - try last 15 minutes, if empty generate from all data
     const fifteenMinAgo = Date.now() - 15 * 60 * 1000;
-    let perMinuteAgg = await suspiciousCol.aggregate([
+    let perMinuteAgg = await activeSuspiciousCol.aggregate([
       { $match: { timestamp: { $gte: fifteenMinAgo } } },
       {
         $group: {
@@ -88,7 +101,7 @@ statsRouter.get('/overview', async (_req, res, next) => {
     }
 
     // Cheat distribution - use ruleTriggered field from Spark output
-    const cheatDistAgg = await suspiciousCol.aggregate([
+    const cheatDistAgg = await activeSuspiciousCol.aggregate([
       { $group: { _id: { $ifNull: ['$ruleTriggered', '$cheatType'] }, count: { $sum: 1 } } },
       { $sort: { count: -1 } }
     ]).toArray();
@@ -100,7 +113,7 @@ statsRouter.get('/overview', async (_req, res, next) => {
 
     // Hourly heatmap - get distribution by hour from ALL data
     // First try last 24 hours, if empty use all data
-    let hourlyAgg = await suspiciousCol.aggregate([
+    let hourlyAgg = await activeSuspiciousCol.aggregate([
       { $match: { timestamp: { $gte: oneDayAgo } } },
       {
         $group: {
@@ -113,7 +126,7 @@ statsRouter.get('/overview', async (_req, res, next) => {
 
     // If no recent data, get hourly distribution from all data
     if (hourlyAgg.length === 0) {
-      hourlyAgg = await suspiciousCol.aggregate([
+      hourlyAgg = await activeSuspiciousCol.aggregate([
         {
           $group: {
             _id: { $hour: { $toDate: '$timestamp' } },

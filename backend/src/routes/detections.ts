@@ -42,16 +42,18 @@ detectionsRouter.get('/', async (req, res, next) => {
 
     const transformed = items.map(item => ({
       eventId: item._id?.toString(),
-      eventType: item.eventType || 'mouseMove',
-      playerId: item.playerId,
-      speed: item.speed,
-      deltaX: item.deltaX,
-      deltaY: item.deltaY,
-      timestamp: item.timestamp,
-      cheatType: item.cheatType || item.ruleTriggered || 'Unknown',
+      eventType: item.eventType || item.event_type || 'mouseMove',
+      // normalize possible Spark field names (player_id / playerId)
+      playerId: item.playerId || item.player_id || item.player_id_norm || item.player_id_norm || null,
+      speed: item.speed || item.movement_speed || null,
+      deltaX: item.deltaX || null,
+      deltaY: item.deltaY || null,
+      // normalize timestamp fields (timestamp / detected_at / unix_timestamp)
+      timestamp: item.timestamp || item.detected_at || item.detectedAt || item.unix_timestamp || null,
+      cheatType: item.cheatType || item.ruleTriggered || item.cheat_type || 'Unknown',
       cheatScore: item.cheatScore,
-      isFlick: item.isFlick,
-      source: item.cheatScore !== undefined ? 'ml' : 'spark'
+      isFlick: item.isFlick || item.is_flick_shot || false,
+      source: item.cheatScore !== undefined ? 'ml' : (item.source || 'spark')
     }));
 
     res.json({ page, limit, total, items: transformed });
@@ -72,21 +74,21 @@ detectionsRouter.get('/live', async (_req, res, next) => {
     const items = await coll
       .find({})
       .sort({ timestamp: -1 })
-      .limit(50)
+      .limit(100)
       .toArray();
 
     const transformed = items.map(item => ({
       eventId: item._id?.toString(),
-      eventType: item.eventType || 'mouseMove',
-      playerId: item.playerId,
-      speed: item.speed,
-      deltaX: item.deltaX,
-      deltaY: item.deltaY,
-      timestamp: item.timestamp,
-      cheatType: item.cheatType || item.ruleTriggered || 'Unknown',
+      eventType: item.eventType || item.event_type || 'mouseMove',
+      playerId: item.playerId || item.player_id || item.player_id_norm || null,
+      speed: item.speed || item.movement_speed || null,
+      deltaX: item.deltaX || null,
+      deltaY: item.deltaY || null,
+      timestamp: item.timestamp || item.detected_at || item.detectedAt || item.unix_timestamp || null,
+      cheatType: item.cheatType || item.ruleTriggered || item.cheat_type || 'Unknown',
       cheatScore: item.cheatScore,
-      isFlick: item.isFlick,
-      source: item.cheatScore !== undefined ? 'ml' : 'spark'
+      isFlick: item.isFlick || item.is_flick_shot || false,
+      source: item.cheatScore !== undefined ? 'ml' : (item.source || 'spark')
     }));
 
     res.json(transformed);
@@ -108,21 +110,21 @@ detectionsRouter.get('/live-db', async (_req, res, next) => {
     const items = await coll
       .find({})
       .sort({ timestamp: -1 })
-      .limit(50)
+      .limit(100)
       .toArray();
 
     const transformed = items.map(item => ({
       eventId: item._id?.toString(),
-      eventType: item.eventType || 'mouseMove',
-      playerId: item.playerId,
-      speed: item.speed,
-      deltaX: item.deltaX,
-      deltaY: item.deltaY,
-      timestamp: item.timestamp,
-      cheatType: item.cheatType || item.ruleTriggered || 'Unknown',
+      eventType: item.eventType || item.event_type || 'mouseMove',
+      playerId: item.playerId || item.player_id || item.player_id_norm || null,
+      speed: item.speed || item.movement_speed || null,
+      deltaX: item.deltaX || null,
+      deltaY: item.deltaY || null,
+      timestamp: item.timestamp || item.detected_at || item.detectedAt || item.unix_timestamp || null,
+      cheatType: item.cheatType || item.ruleTriggered || item.cheat_type || 'Unknown',
       cheatScore: item.cheatScore,
-      isFlick: item.isFlick,
-      source: item.cheatScore !== undefined ? 'ml' : 'spark'
+      isFlick: item.isFlick || item.is_flick_shot || false,
+      source: item.cheatScore !== undefined ? 'ml' : (item.source || 'spark')
     }));
 
     // 🚫 Disable any HTTP caching
