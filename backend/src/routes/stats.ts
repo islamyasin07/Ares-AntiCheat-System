@@ -4,6 +4,14 @@ import { config } from '../config';
 
 export const statsRouter = Router();
 
+// Shared helper to apply a short timeout to slow DB operations to avoid blocking the API
+const withTimeout = <T,>(p: Promise<T>, ms = 2000): Promise<T> => {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+  ]) as any;
+};
+
 // GET /api/stats/overview - Dashboard overview stats
 statsRouter.get('/overview', async (_req, res, next) => {
   try {
@@ -14,16 +22,19 @@ statsRouter.get('/overview', async (_req, res, next) => {
     // Get accurate counts from both processed and raw event collections so totals reflect all inserts
     const eventsProcessedCol = db.collection('events');
     const detectionsCol = db.collection('detections');
+    const eventsFeaturesCol = db.collection('events_features');
 
-    // Fetch counts. If backend is configured to read from a legacy `suspicious` collection
-    // but Spark writes into `detections`, prefer the live `detections` count so the UI
-    // reflects current data (avoids stale totalSuspicious like 2501).
-    const [eventsRawCount, eventsProcessedCount, configuredSuspiciousCount, detectionsCount] = await Promise.all([
-      eventsCol.countDocuments({}),
-      eventsProcessedCol.countDocuments({}),
-      suspiciousCol.countDocuments({}),
-      detectionsCol.countDocuments({})
+    // Fetch counts. Use estimated counts with a short timeout to avoid blocking the API
+
+    // Use fast estimated counts where possible and fall back to 0 on timeout
+    const safeCounts = await Promise.all([
+      withTimeout(eventsCol.estimatedDocumentCount(), 1500).catch(() => 0),
+      withTimeout(eventsProcessedCol.estimatedDocumentCount(), 1500).catch(() => 0),
+      withTimeout(suspiciousCol.estimatedDocumentCount(), 1500).catch(() => 0),
+      withTimeout(detectionsCol.estimatedDocumentCount(), 1500).catch(() => 0),
+      withTimeout(eventsFeaturesCol.estimatedDocumentCount(), 1500).catch(() => 0)
     ]);
+    const [eventsRawCount, eventsProcessedCount, configuredSuspiciousCount, detectionsCount, eventsFeaturesCount] = safeCounts.map(x => Number(x || 0));
 
     // Use the more up-to-date suspicious count (prefer `detections` if it contains more records)
     const totalSuspicious = Math.max(configuredSuspiciousCount || 0, detectionsCount || 0);
@@ -37,6 +48,11 @@ statsRouter.get('/overview', async (_req, res, next) => {
       // ignore logging errors
     }
 
+    // Add Spark heartbeat info (last processed batch timestamp) to help triage
+    const heartbeatCol = db.collection('spark_heartbeat');
+    const lastHeartbeatArr = await withTimeout(heartbeatCol.find({}).sort({ processedAt: -1 }).limit(1).toArray(), 1200).catch(() => [] as any[]);
+    const lastHeartbeat = (lastHeartbeatArr && lastHeartbeatArr.length) ? lastHeartbeatArr[0] : null;
+
     // Cheaters today (unique playerIds in suspicious in last 24h)
     // If no recent data, get unique players from all data
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
@@ -45,27 +61,35 @@ statsRouter.get('/overview', async (_req, res, next) => {
     // suspicious collection.
     const activeSuspiciousCol = (detectionsCount > configuredSuspiciousCount) ? detectionsCol : suspiciousCol;
 
-    let cheatersToday = await activeSuspiciousCol.distinct('playerId', {
-      timestamp: { $gte: oneDayAgo }
-    });
-    if (cheatersToday.length === 0) {
-      cheatersToday = await activeSuspiciousCol.distinct('playerId');
+    // Support both camelCase and snake_case player id and timestamp fields
+    const recentTimeFilter = { $or: [ { timestamp: { $gte: oneDayAgo } }, { detected_at: { $gte: oneDayAgo } }, { unix_timestamp: { $gte: oneDayAgo } } ] };
+    let cheatersToday = await withTimeout(activeSuspiciousCol.distinct('playerId', recentTimeFilter as any), 1500).catch(() => [] as any[]);
+    if (!cheatersToday || cheatersToday.length === 0) {
+      cheatersToday = await withTimeout(activeSuspiciousCol.distinct('player_id', recentTimeFilter as any), 1500).catch(() => [] as any[]);
+    }
+    if (!cheatersToday || cheatersToday.length === 0) {
+      cheatersToday = await withTimeout(activeSuspiciousCol.distinct('playerId'), 1500).catch(() => [] as any[]);
+      if (!cheatersToday || cheatersToday.length === 0) {
+        cheatersToday = await withTimeout(activeSuspiciousCol.distinct('player_id'), 1500).catch(() => [] as any[]);
+      }
     }
 
     // Live players (unique playerIds in events in last 5 min)
     // If no recent, show unique players from recent detections
     const fiveMinAgo = Date.now() - 5 * 60 * 1000;
-    let livePlayers = await eventsCol.distinct('playerId', {
-      timestamp: { $gte: fiveMinAgo }
-    });
-    if (livePlayers.length === 0) {
-      livePlayers = await activeSuspiciousCol.distinct('playerId');
+    let livePlayers = await withTimeout(eventsCol.distinct('playerId', { $or: [ { timestamp: { $gte: fiveMinAgo } }, { unix_timestamp: { $gte: fiveMinAgo } } ] } as any), 1200).catch(() => [] as any[]);
+    if (!livePlayers || livePlayers.length === 0) {
+      livePlayers = await withTimeout(eventsCol.distinct('player_id', { $or: [ { timestamp: { $gte: fiveMinAgo } }, { unix_timestamp: { $gte: fiveMinAgo } } ] } as any), 1200).catch(() => [] as any[]);
+    }
+    if (!livePlayers || livePlayers.length === 0) {
+      livePlayers = await withTimeout(activeSuspiciousCol.distinct('playerId'), 1200).catch(() => [] as any[]);
     }
 
     // Per-minute suspicious - try last 15 minutes, if empty generate from all data
     const fifteenMinAgo = Date.now() - 15 * 60 * 1000;
-    let perMinuteAgg = await activeSuspiciousCol.aggregate([
-      { $match: { timestamp: { $gte: fifteenMinAgo } } },
+    const recent15Filter = { $or: [ { timestamp: { $gte: fifteenMinAgo } }, { detected_at: { $gte: fifteenMinAgo } }, { unix_timestamp: { $gte: fifteenMinAgo } } ] };
+    let perMinuteAgg = await withTimeout(activeSuspiciousCol.aggregate([
+      { $match: recent15Filter as any },
       {
         $group: {
           _id: {
@@ -79,7 +103,7 @@ statsRouter.get('/overview', async (_req, res, next) => {
       },
       { $sort: { _id: 1 } },
       { $limit: 15 }
-    ]).toArray();
+    ]).toArray(), 2000).catch(() => [] as any[]);
 
     // If no recent data, generate a synthetic per-minute chart from total data
     let perMinuteSuspicious: { minute: string; count: number }[] = [];
@@ -101,19 +125,19 @@ statsRouter.get('/overview', async (_req, res, next) => {
     }
 
     // Cheat distribution - use ruleTriggered field from Spark output
-    const cheatDistAgg = await activeSuspiciousCol.aggregate([
+    const cheatDistAgg = await withTimeout(activeSuspiciousCol.aggregate([
       { $group: { _id: { $ifNull: ['$ruleTriggered', '$cheatType'] }, count: { $sum: 1 } } },
       { $sort: { count: -1 } }
-    ]).toArray();
+    ]).toArray(), 2000).catch(() => [] as any[]);
 
-    const cheatDistribution = cheatDistAgg.map(item => ({
+    const cheatDistribution = (cheatDistAgg || []).map(item => ({
       cheatType: item._id || 'Unknown',
       count: item.count
     }));
 
     // Hourly heatmap - get distribution by hour from ALL data
     // First try last 24 hours, if empty use all data
-    let hourlyAgg = await activeSuspiciousCol.aggregate([
+    let hourlyAgg = await withTimeout(activeSuspiciousCol.aggregate([
       { $match: { timestamp: { $gte: oneDayAgo } } },
       {
         $group: {
@@ -122,11 +146,11 @@ statsRouter.get('/overview', async (_req, res, next) => {
         }
       },
       { $sort: { _id: 1 } }
-    ]).toArray();
+    ]).toArray(), 2000).catch(() => [] as any[]);
 
-    // If no recent data, get hourly distribution from all data
-    if (hourlyAgg.length === 0) {
-      hourlyAgg = await activeSuspiciousCol.aggregate([
+    // If no recent data, get hourly distribution from all data (safe fallback)
+    if (!hourlyAgg || hourlyAgg.length === 0) {
+      hourlyAgg = await withTimeout(activeSuspiciousCol.aggregate([
         {
           $group: {
             _id: { $hour: { $toDate: '$timestamp' } },
@@ -134,7 +158,7 @@ statsRouter.get('/overview', async (_req, res, next) => {
           }
         },
         { $sort: { _id: 1 } }
-      ]).toArray();
+      ]).toArray(), 2500).catch(() => [] as any[]);
     }
 
     // Fill 24 hours
@@ -148,6 +172,7 @@ statsRouter.get('/overview', async (_req, res, next) => {
       totalSuspicious,
       cheatersToday: cheatersToday.length,
       livePlayers: livePlayers.length,
+      sparkLastProcessedAt: lastHeartbeat ? lastHeartbeat.processedAt : null,
       perMinuteSuspicious,
       cheatDistribution,
       hourlyHeatmap
@@ -233,9 +258,9 @@ statsRouter.get('/logs', async (_req, res, next) => {
     
     // Get recent activity counts
     const [recentEvents, recentSuspicious, lastSuspicious] = await Promise.all([
-      eventsCol.countDocuments({ timestamp: { $gte: fiveMinAgo } }),
-      suspiciousCol.countDocuments({ timestamp: { $gte: fiveMinAgo } }),
-      suspiciousCol.find({}).sort({ timestamp: -1 }).limit(5).toArray()
+      withTimeout(eventsCol.countDocuments({ timestamp: { $gte: fiveMinAgo } }), 1200).catch(() => 0),
+      withTimeout(suspiciousCol.countDocuments({ timestamp: { $gte: fiveMinAgo } }), 1200).catch(() => 0),
+      withTimeout(suspiciousCol.find({}).sort({ timestamp: -1 }).limit(5).toArray(), 1500).catch(() => [] as any[])
     ]);
 
     // Generate real system logs based on actual data
@@ -260,13 +285,13 @@ statsRouter.get('/logs', async (_req, res, next) => {
     }
 
     // Add detection logs from actual suspicious events
-    lastSuspicious.forEach((event, idx) => {
-      const cheatType = event.cheatType || event.ruleTriggered || 'Suspicious';
-      const level = (event.cheatScore || 0) > 70 ? 'WARN' : 'INFO';
+    lastSuspicious.forEach((event: any, idx: number) => {
+      const cheatType = (event?.cheatType) || (event?.ruleTriggered) || 'Suspicious';
+      const level = ((event?.cheatScore) || 0) > 70 ? 'WARN' : 'INFO';
       logs.push({
-        time: formatTime(new Date(event.timestamp)),
+        time: formatTime(new Date(event?.timestamp)),
         level,
-        message: `${cheatType} detected for player ${event.playerId} (score: ${event.cheatScore || 'N/A'})`
+        message: `${cheatType} detected for player ${event?.playerId} (score: ${event?.cheatScore || 'N/A'})`
       });
     });
 

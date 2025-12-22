@@ -77,7 +77,7 @@ playersRouter.get('/:playerId', async (req, res, next) => {
     let totalSpeed = 0;
     let flickCount = 0;
 
-    recentSuspicious.forEach(event => {
+    recentSuspicious.forEach((event: any) => {
       const cheatType = event.cheatType || event.ruleTriggered;
       if (cheatType) {
         cheatTypeCounts[cheatType] = (cheatTypeCounts[cheatType] || 0) + 1;
