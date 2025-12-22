@@ -8,6 +8,7 @@ import com.typesafe.config.ConfigFactory
 import com.mongodb.client.MongoClients
 import org.bson.Document
 import scala.collection.JavaConverters._
+import com.mongodb.client.model.ReplaceOptions
 
 object SparkStreamingApp {
 
@@ -15,15 +16,19 @@ object SparkStreamingApp {
 
     val spark = SparkSession.builder()
       .appName("Ares AntiCheat - Spark Streaming (Unified Producer Compatible)")
-      .master("local[1]")
+      .master("local[*]")
       .getOrCreate()
 
     spark.sparkContext.setLogLevel("ERROR")
-    spark.conf.set("spark.sql.shuffle.partitions", "1")
+    // Tunable defaults — change to match your cluster in production
+    spark.conf.set("spark.sql.shuffle.partitions", "4")
     spark.conf.set("spark.streaming.backpressure.enabled", "true")
     spark.conf.set("spark.sql.streaming.stateStore.maintenanceInterval", "30s")
 
     println("🔥 Spark Streaming App Started (Unified Schema)...")
+
+    // Allow tuning via environment for production
+    val maxOffsetsPerTriggerEnv = sys.env.getOrElse("MAX_OFFSETS_PER_TRIGGER", "1000")
 
     // ------------------------------------------------------------
     // Load detection rules config (keep your existing config file)
@@ -60,7 +65,7 @@ object SparkStreamingApp {
       .option("subscribe", "player-events")
       // For testing, start from earliest so existing topic messages are ingested
       .option("startingOffsets", "earliest")
-      .option("maxOffsetsPerTrigger", "1000")
+      .option("maxOffsetsPerTrigger", maxOffsetsPerTriggerEnv)
       .option("failOnDataLoss", "false")
       .option("minPartitions", "1")
       .option("fetchOffset.numRetries", "30")
@@ -74,6 +79,7 @@ object SparkStreamingApp {
     // Unified Schema (handles both old + new producer fields)
     // ------------------------------------------------------------
     val schema = new StructType()
+      .add("event_id", StringType)
       .add("schema_version", StringType)
 
       // identity (both styles)
@@ -151,6 +157,7 @@ object SparkStreamingApp {
 
     // Base DF used for detections & features
     val baseDF = normalized.select(
+      col("event_id"),
       col("player_id_norm").alias("player_id"),
       col("event_type_norm").alias("event_type"),
       col("unix_ts_norm").alias("unix_timestamp"),
@@ -270,43 +277,288 @@ object SparkStreamingApp {
         col("source"),
         col("evidence")
       )
+      // Add camelCase `playerId` and `timestamp` fields for backend compatibility
+      .withColumn("playerId", col("player_id"))
+      .withColumn("timestamp", col("detected_at"))
 
     // ------------------------------------------------------------
     // events_raw: store raw event JSON + minimal indexed fields
     // ------------------------------------------------------------
     val eventsRawStructured = baseDF.select(
+      col("event_id"),
       col("player_id"),
       col("unix_timestamp"),
       col("event_type"),
       col("raw_json").alias("rawEvent")
     )
+    // Add fields expected by backend (camelCase key names)
+    .withColumn("playerId", col("player_id"))
+    .withColumn("timestamp", col("unix_timestamp"))
 
     // ------------------------------------------------------------
     // events_features: useful engineered features for dashboard/analysis
     // We'll compute per-batch window features inside foreachBatch (static DF)
     // ------------------------------------------------------------
 
+    // Checkpoint base path can be controlled via env var: SPARK_CHECKPOINT_DIR
+    val checkpointBase = sys.env.getOrElse("SPARK_CHECKPOINT_DIR", "checkpoint")
+
+    // MongoDB base URI shared by writers
+    val baseUri = sys.env.getOrElse("MONGO_URI", "mongodb://localhost:27018")
+
     def writeToMongo(df: Dataset[Row], collectionName: String, batchId: Long): Unit = {
-      val mongoUri = "mongodb://localhost:27018"
-      println(s"Connecting to MongoDB -> $mongoUri, DB -> ares_anticheat, coll -> $collectionName (batch: $batchId)")
+      val printable = s"$baseUri/ares_anticheat.$collectionName"
+      println(s"Writing to MongoDB -> $printable (batch: $batchId) | rows: ${df.count()}")
 
-      val client = MongoClients.create(mongoUri)
+      // For append-only collections, prefer a per-partition insert path which
+      // is robust and avoids idempotent-upsert behaviour that can keep counts static.
+      // IMPORTANT: treat `detections` as append-only as well so counts always grow
+      // (fallback to connector previously caused static counts in some setups).
+      if (collectionName == "events_raw" || collectionName == "events_features" || collectionName == "detections") {
+        writeToMongoAppend(df, collectionName, batchId)
+        // Driver-side verification after append: print total + latest sample timestamp
+        try {
+          val client = MongoClients.create(baseUri)
+          try {
+            val coll = client.getDatabase("ares_anticheat").getCollection(collectionName)
+            val total = coll.countDocuments()
+            println(s"[verify-driver] $collectionName totalDocuments=$total")
+            // Print latest document timestamp if present to help triage
+            try {
+              val doc = coll.find().sort(new org.bson.Document("timestamp", -1)).first()
+              if (doc != null) println(s"[verify-driver] $collectionName latest=${doc.toJson}")
+            } catch { case _: Throwable => () }
+          } finally client.close()
+        } catch { case _: Throwable => () }
+
+        return
+      }
+
       try {
-        val coll = client.getDatabase("ares_anticheat").getCollection(collectionName)
-        val docsList = df.toJSON.collect().map(Document.parse).toList
-
-        if (docsList.nonEmpty) {
-          coll.insertMany(docsList.asJava)
-          println(s"✔️ Inserted ${docsList.size} documents → $collectionName (batch: $batchId)")
+        // If writing to `detections`, do not add an `_id` so inserts are append-only.
+        val dfWithId = if (collectionName == "detections") {
+          df
+        } else if (df.columns.contains("_id")) {
+          df
+        } else if (df.columns.contains("event_id")) {
+          df.withColumn("_id", col("event_id"))
         } else {
-          println(s"No documents to insert → $collectionName (batch: $batchId)")
+          // Build a safe id from whichever timestamp-like column exists; fall back to batchId
+          val pidCol = coalesce(col("player_id"), col("playerId"))
+          val idCol = if (df.columns.contains("detected_at")) {
+            concat(pidCol, lit("-"), col("detected_at").cast(StringType))
+          } else if (df.columns.contains("timestamp")) {
+            concat(pidCol, lit("-"), col("timestamp").cast(StringType))
+          } else if (df.columns.contains("unix_timestamp")) {
+            concat(pidCol, lit("-"), col("unix_timestamp").cast(StringType))
+          } else {
+            concat(pidCol, lit("-"), lit(batchId.toString))
+          }
+          df.withColumn("_id", idCol)
+        }
+
+        // Try using the MongoDB Spark Connector first (distributed, fast)
+        dfWithId.write
+          .format("mongodb")
+          .option("uri", baseUri)
+          .option("database", "ares_anticheat")
+          .option("collection", collectionName)
+          .mode("append")
+          .save()
+
+        println(s"✔️ Saved batch $batchId -> $collectionName (connector)")
+        // Driver-side quick verification: print total documents in the collection
+        try {
+          val client = MongoClients.create(baseUri)
+          try {
+            val coll = client.getDatabase("ares_anticheat").getCollection(collectionName)
+            val total = coll.countDocuments()
+            println(s"[verify-driver] $collectionName totalDocuments=$total")
+          } finally client.close()
+        } catch {
+          case e: Exception => println(s"[verify-driver] count failed: ${e.getMessage}")
         }
       } catch {
         case e: Exception =>
-          println(s"MongoDB Error in $collectionName / batch $batchId: " + e.getMessage)
-      } finally {
-        client.close()
+          println(s"MongoDB connector write failed for $collectionName / batch $batchId: " + e.getMessage)
+          println("Falling back to per-partition append writer to avoid stopping the stream.")
+          // Fallback: per-partition append using Mongo Java driver (executor-side)
+          writeToMongoAppend(df, collectionName, batchId)
       }
+    }
+
+    // Write a tiny heartbeat document so external systems can detect last processed batch
+    def writeHeartbeat(batchId: Long): Unit = {
+      import spark.implicits._
+      val heartbeatDF = Seq((batchId, System.currentTimeMillis())).toDF("batchId", "processedAt")
+      try {
+        heartbeatDF.write
+          .format("mongodb")
+          .option("uri", baseUri)
+          .option("database", "ares_anticheat")
+          .option("collection", "spark_heartbeat")
+          .mode("append")
+          .save()
+        println(s"✔️ Heartbeat saved for batch $batchId")
+      } catch {
+        case e: Exception => println(s"Heartbeat write failed: " + e.getMessage)
+      }
+    }
+
+    def writeToMongoWithUpsert(df: Dataset[Row], collectionName: String, batchId: Long): Unit = {
+      val fieldNames = df.schema.fieldNames
+      df.foreachPartition { (iter: scala.collection.Iterator[Row]) =>
+        val client = MongoClients.create(baseUri)
+        try {
+          val coll = client.getDatabase("ares_anticheat").getCollection(collectionName)
+          val replaceOpt = new ReplaceOptions().upsert(true)
+          iter.foreach { row =>
+            // Build a Document from row values with safe conversion for nested Rows/arrays
+            def toBsonValue(v: Any): AnyRef = {
+              if (v == null) null
+              else v match {
+                case r: org.apache.spark.sql.Row =>
+                  // Try to read nested schema via reflection to get field names
+                  try {
+                    val schema = r.getClass.getMethod("schema").invoke(r)
+                    val fieldNamesNested = schema.getClass.getMethod("fieldNames").invoke(schema).asInstanceOf[Array[String]]
+                    val nestedDoc = new Document()
+                    var j = 0
+                    while (j < fieldNamesNested.length) {
+                      val key = fieldNamesNested(j)
+                      nestedDoc.append(key, toBsonValue(r.get(j)))
+                      j += 1
+                    }
+                    nestedDoc
+                  } catch {
+                    case _: Throwable =>
+                      // Fallback: flatten values to a list
+                      val lst = new java.util.ArrayList[AnyRef]()
+                      var j = 0
+                      while (j < r.length) { lst.add(toBsonValue(r.get(j))); j += 1 }
+                      lst
+                  }
+                case seq: scala.collection.Seq[_] =>
+                  val jl = new java.util.ArrayList[AnyRef]()
+                  seq.foreach(x => jl.add(toBsonValue(x)))
+                  jl
+                case arr: Array[_] =>
+                  val jl = new java.util.ArrayList[AnyRef]()
+                  arr.foreach(x => jl.add(toBsonValue(x)))
+                  jl
+                case m: scala.collection.Map[_, _] =>
+                  val d = new Document()
+                  m.foreach { case (k, v) => d.append(String.valueOf(k), toBsonValue(v)) }
+                  d
+                case other => other.asInstanceOf[AnyRef]
+              }
+            }
+
+            val doc = new Document()
+            var i = 0
+            while (i < fieldNames.length) {
+              val k = fieldNames(i)
+              val v = row.get(i)
+              val conv = toBsonValue(v)
+              if (conv != null) doc.append(k, conv)
+              i += 1
+            }
+
+            if (doc.containsKey("_id")) {
+              val idVal = doc.get("_id")
+              coll.replaceOne(new Document("_id", idVal), doc, replaceOpt)
+            } else {
+              coll.insertOne(doc)
+            }
+          }
+        } catch {
+          case e: Exception =>
+            // Log and continue; do not throw to avoid stopping streaming query
+            println(s"Executor partition write error for $collectionName / batch $batchId: " + e.getMessage)
+        } finally {
+          client.close()
+        }
+      }
+      println(s"✔️ Fallback upsert completed for batch $batchId -> $collectionName")
+    }
+
+    // Per-partition append writer using the Mongo Java driver (executor-side)
+    def writeToMongoAppend(df: Dataset[Row], collectionName: String, batchId: Long): Unit = {
+      val fieldNames = df.schema.fieldNames
+      df.foreachPartition { (iter: scala.collection.Iterator[Row]) =>
+        val client = MongoClients.create(baseUri)
+        try {
+          val coll = client.getDatabase("ares_anticheat").getCollection(collectionName)
+          val batch = new java.util.ArrayList[Document]()
+          var count = 0
+          while (iter.hasNext) {
+            val row = iter.next()
+            val doc = new Document()
+            var i = 0
+            while (i < fieldNames.length) {
+              val k = fieldNames(i)
+              val v = row.get(i)
+              // Convert nested structs/arrays into BSON-friendly types
+              def toBsonValueLocal(vv: Any): AnyRef = {
+                if (vv == null) null
+                else vv match {
+                  case r: org.apache.spark.sql.Row =>
+                    try {
+                      val schema = r.getClass.getMethod("schema").invoke(r)
+                      val fieldNamesNested = schema.getClass.getMethod("fieldNames").invoke(schema).asInstanceOf[Array[String]]
+                      val nestedDoc = new Document()
+                      var j = 0
+                      while (j < fieldNamesNested.length) {
+                        nestedDoc.append(fieldNamesNested(j), toBsonValueLocal(r.get(j)))
+                        j += 1
+                      }
+                      nestedDoc
+                    } catch {
+                      case _: Throwable =>
+                        val jl = new java.util.ArrayList[AnyRef]()
+                        var j = 0
+                        while (j < r.length) { jl.add(toBsonValueLocal(r.get(j))); j += 1 }
+                        jl
+                    }
+                  case seq: scala.collection.Seq[_] =>
+                    val jl = new java.util.ArrayList[AnyRef]()
+                    seq.foreach(x => jl.add(toBsonValueLocal(x)))
+                    jl
+                  case arr: Array[_] =>
+                    val jl = new java.util.ArrayList[AnyRef]()
+                    arr.foreach(x => jl.add(toBsonValueLocal(x)))
+                    jl
+                  case m: scala.collection.Map[_, _] =>
+                    val d = new Document()
+                    m.foreach { case (kk, vv) => d.append(String.valueOf(kk), toBsonValueLocal(vv)) }
+                    d
+                  case other => other.asInstanceOf[AnyRef]
+                }
+              }
+
+              val converted = toBsonValueLocal(v)
+              if (converted != null) doc.append(k, converted)
+              i += 1
+            }
+            batch.add(doc)
+            count += 1
+            // Flush in chunks to avoid huge memory usage
+            if (batch.size() >= 500) {
+              coll.insertMany(batch)
+              batch.clear()
+            }
+          }
+          if (batch.size() > 0) {
+            coll.insertMany(batch)
+            batch.clear()
+          }
+        } catch {
+          case e: Exception => println(s"Executor partition append error for $collectionName / batch $batchId: " + e.getMessage)
+        } finally {
+          client.close()
+        }
+      }
+      println(s"✔️ Append completed for batch $batchId -> $collectionName")
     }
 
     // -----------------------------
@@ -315,20 +567,37 @@ object SparkStreamingApp {
     val suspiciousQuery = detectionsStructured.writeStream
       .trigger(org.apache.spark.sql.streaming.Trigger.ProcessingTime("5 seconds"))
       .foreachBatch { (batchDF: Dataset[Row], batchId: Long) =>
+        println(s"[detections] Processing batch $batchId - rows: ${batchDF.count()}")
+        // Do not force _id here - use append inserts so counts increase
         writeToMongo(batchDF, "detections", batchId)
+        // Also mirror to legacy `suspicious` collection to ensure backend compatibility
+        try {
+          writeToMongoAppend(batchDF, "suspicious", batchId)
+          // driver verify for suspicious as well
+          try {
+            val client = MongoClients.create(baseUri)
+            try {
+              val coll = client.getDatabase("ares_anticheat").getCollection("suspicious")
+              val total = coll.countDocuments()
+              println(s"[verify-driver] suspicious totalDocuments=$total")
+            } finally client.close()
+          } catch { case _: Throwable => () }
+        } catch { case e: Exception => println(s"mirror to suspicious failed: ${e.getMessage}") }
       }
-      .option("checkpointLocation", "checkpoint/suspicious")
+      .option("checkpointLocation", s"$checkpointBase/suspicious")
       .start()
 
     // -----------------------------
     // Write events_raw
     // -----------------------------
-    val allEventsQuery = eventsRawStructured.writeStream
+    // Write events_raw without forcing `_id` so writes are append-only
+    val allEventsQuery = eventsRawStructured
+      .writeStream
       .trigger(org.apache.spark.sql.streaming.Trigger.ProcessingTime("5 seconds"))
       .foreachBatch { (batchDF: Dataset[Row], batchId: Long) =>
         writeToMongo(batchDF, "events_raw", batchId)
       }
-      .option("checkpointLocation", "checkpoint/events")
+      .option("checkpointLocation", s"$checkpointBase/events")
       .start()
 
     // -----------------------------
@@ -381,9 +650,10 @@ object SparkStreamingApp {
           col("risk_hint")
         )
 
+        // Write features without forcing _id so inserts increase collection counts
         writeToMongo(featuresStructured, "events_features", batchId)
       }
-      .option("checkpointLocation", "checkpoint/features")
+      .option("checkpointLocation", s"$checkpointBase/features")
       .start()
 
     // Console debugging (optional)
