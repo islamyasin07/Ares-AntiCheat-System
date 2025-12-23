@@ -39,7 +39,6 @@ const readAnalyticsCsv = (folderName: string, res: Response) => {
             res.setHeader('Expires', '0');
             res.setHeader('Surrogate-Control', 'no-store');
         } catch (e) {
-            // ignore header setting errors
         }
 
         const data: any[] = [];

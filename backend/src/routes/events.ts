@@ -56,10 +56,7 @@ eventsRouter.get('/live', async (_req, res, next) => {
   }
 });
 
-/**
- * POST /api/events - Ingest a new event with deduplication
- * Uses Bloom Filter to detect and prevent duplicate event processing
- */
+
 const eventSchema = z.object({
   playerId: z.string().min(1),
   eventType: z.string(),
@@ -108,9 +105,7 @@ eventsRouter.post('/', async (req, res, next) => {
   }
 });
 
-/**
- * GET /api/events/dedup/stats - Get deduplication statistics
- */
+
 eventsRouter.get('/dedup/stats', (_req, res) => {
   const stats = deduplicationService.getStats();
   res.json(stats);

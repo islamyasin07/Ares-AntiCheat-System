@@ -5,9 +5,6 @@ import { retryWithBackoff, RetryConfig } from '../utils/retryUtils';
 let client: MongoClient | null = null;
 let db: Db | null = null;
 
-/**
- * Mongo-specific retry configuration
- */
 const MONGO_RETRY_CONFIG: RetryConfig = {
   maxRetries: 5,
   initialDelayMs: 2000,
@@ -15,14 +12,11 @@ const MONGO_RETRY_CONFIG: RetryConfig = {
   backoffMultiplier: 2,
 };
 
-/**
- * Get or establish database connection with automatic retry and exponential backoff
- */
+
 export async function getDb(): Promise<Db> {
   if (db && client) return db;
 
   client = new MongoClient(config.mongoUri, {
-    // modern driver uses stable API by default
   });
 
   await retryWithBackoff(

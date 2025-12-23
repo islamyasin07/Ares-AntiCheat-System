@@ -17,10 +17,7 @@ const querySchema = z.object({
   cheatType: z.string().optional(),
 });
 
-// ========================================
-// GET /api/detections
-// Paginated historical detections
-// ========================================
+
 detectionsRouter.get('/', async (req, res, next) => {
   try {
     const { playerId, page, limit, cheatType } = querySchema.parse(req.query);
@@ -62,10 +59,7 @@ detectionsRouter.get('/', async (req, res, next) => {
   }
 });
 
-// ========================================
-// GET /api/detections/live
-// Stateful live feed (Bloom / cached logic)
-// ========================================
+
 detectionsRouter.get('/live', async (_req, res, next) => {
   try {
     const db = await getDb();
@@ -97,11 +91,7 @@ detectionsRouter.get('/live', async (_req, res, next) => {
   }
 });
 
-// ========================================
-// GET /api/detections/live-db
-// 🔥 TRUE LIVE STREAM (NO CACHE, NO BLOOM)
-// Reads directly from MongoDB
-// ========================================
+
 detectionsRouter.get('/live-db', async (_req, res, next) => {
   try {
     const db = await getDb();
@@ -127,7 +117,6 @@ detectionsRouter.get('/live-db', async (_req, res, next) => {
       source: item.cheatScore !== undefined ? 'ml' : (item.source || 'spark')
     }));
 
-    // 🚫 Disable any HTTP caching
     res.set('Cache-Control', 'no-store');
     res.json(transformed);
   } catch (err) {
@@ -135,10 +124,7 @@ detectionsRouter.get('/live-db', async (_req, res, next) => {
   }
 });
 
-// ========================================
-// POST /api/detections
-// Insert detection with Bloom deduplication
-// ========================================
+
 const detectionSchema = z.object({
   playerId: z.string().min(1),
   cheatType: z.string(),
@@ -168,7 +154,6 @@ detectionsRouter.post('/', async (req, res, next) => {
       });
     }
 
-    // Flag player based on cheat type
     if (detection.cheatType.includes('Aimbot')) {
       suspiciousPlayerService.flagAimbotSuspect(detection.playerId);
     } else if (detection.cheatType.includes('Recoil')) {
@@ -204,10 +189,7 @@ detectionsRouter.post('/', async (req, res, next) => {
   }
 });
 
-// ========================================
-// GET /api/detections/player/:playerId
-// Threat profile from Bloom/state
-// ========================================
+
 detectionsRouter.get('/player/:playerId', async (req, res, next) => {
   try {
     const { playerId } = z.object({ playerId: z.string().min(1) }).parse(req.params);
@@ -217,11 +199,6 @@ detectionsRouter.get('/player/:playerId', async (req, res, next) => {
     next(err);
   }
 });
-
-// ========================================
-// GET /api/detections/threats/stats
-// Bloom filter statistics
-// ========================================
 detectionsRouter.get('/threats/stats', (_req, res) => {
   const stats = suspiciousPlayerService.getStats();
   res.json(stats);

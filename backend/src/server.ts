@@ -15,14 +15,10 @@ const app = express();
 import http from 'http';
 import { setupSocket } from './socket';
 
-/* =========================================================
-   🔥 KILL ALL HTTP CACHING – GLOBAL
-========================================================= */
+
 app.disable('etag');
 
-/* =========================================================
-   🔥 Force no-cache on detections (LIVE DATA)
-========================================================= */
+
 app.use('/api/detections', (_req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -31,22 +27,16 @@ app.use('/api/detections', (_req, res, next) => {
   next();
 });
 
-/* =========================================================
-   Middleware
-========================================================= */
+
 app.use(cors({ origin: config.allowOrigin === '*' ? true : config.allowOrigin }));
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));
 
-/* =========================================================
-   Routes
-========================================================= */
+
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-// === Realtime API: Disable caching so clients always receive freshest data ===
 app.use('/api', (req, res, next) => {
   try {
-    // Strip conditional request headers to prevent 304 Not Modified responses
     delete (req.headers as any)['if-none-match'];
     delete (req.headers as any)['if-modified-since'];
 
@@ -63,16 +53,12 @@ app.use('/api', (req, res, next) => {
 app.use('/api', apiRouter);
 app.use('/api/v1/analytics', analyticsRouter);
 
-/* =========================================================
-   Error Handler
-========================================================= */
+
 app.use(errorHandler);
 
 export default app;
 
-/* =========================================================
-   Bloom Filters Initialization
-========================================================= */
+
 async function initializeBloomFilters() {
   try {
     const persistenceManager = getPersistenceManager();
@@ -88,9 +74,7 @@ async function initializeBloomFilters() {
   }
 }
 
-/* =========================================================
-   Periodic Persistence
-========================================================= */
+
 function setupPeriodicPersistence() {
   const persistenceManager = getPersistenceManager();
   const deduplicationService = getDeduplicationService();

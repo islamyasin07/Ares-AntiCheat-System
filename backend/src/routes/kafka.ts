@@ -3,10 +3,7 @@ import { listTopics, describeTopic } from '../services/kafkaService';
 
 export const kafkaRouter = Router();
 
-/**
- * GET /api/kafka/topics
- * List all available Kafka topics
- */
+
 kafkaRouter.get('/topics', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await listTopics();
@@ -18,10 +15,7 @@ kafkaRouter.get('/topics', async (req: Request, res: Response, next: NextFunctio
   }
 });
 
-/**
- * GET /api/kafka/topics/:name
- * Describe a specific Kafka topic with partition details
- */
+
 kafkaRouter.get('/topics/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name } = req.params;

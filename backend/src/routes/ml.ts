@@ -188,7 +188,6 @@ mlRouter.get('/scan/all', async (req: Request, res: Response) => {
     const db = await getDb();
     const limit = parseInt(req.query.limit as string) || 100;
     
-    // Get recent detections (read suspicious collection produced by Spark)
     const detections = await db.collection(require('../config').config.collections.suspicious)
       .find({})
       .sort({ timestamp: -1 })

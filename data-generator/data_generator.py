@@ -39,17 +39,13 @@ KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 KAFKA_TOPIC = "player-events"
 
 TOTAL_PLAYERS = 120
-CHEATER_PERCENTAGE = 0.22     # demo-ready: enough detections
-EVENTS_PER_SECOND = 60        # global target rate
+CHEATER_PERCENTAGE = 0.22     
+EVENTS_PER_SECOND = 60       
 BATCH_MIN = 4
 BATCH_MAX = 12
 
-# time correlation alignment
-# prefer unix_timestamp in ms for Spark + ML join windows
 USE_UNIX_MS = True
 
-# if you want more ML detections quickly:
-# increase CHEATER_PERCENTAGE or raise cheater aggressiveness below.
 
 SCHEMA_VERSION = "ares.unified.v3.5"
 

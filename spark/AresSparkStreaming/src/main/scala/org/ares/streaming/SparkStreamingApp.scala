@@ -20,7 +20,6 @@ object SparkStreamingApp {
       .getOrCreate()
 
     spark.sparkContext.setLogLevel("ERROR")
-    // Tunable defaults — change to match your cluster in production
     spark.conf.set("spark.sql.shuffle.partitions", "4")
     spark.conf.set("spark.streaming.backpressure.enabled", "true")
     spark.conf.set("spark.sql.streaming.stateStore.maintenanceInterval", "30s")
@@ -31,7 +30,7 @@ object SparkStreamingApp {
     val maxOffsetsPerTriggerEnv = sys.env.getOrElse("MAX_OFFSETS_PER_TRIGGER", "1000")
 
     // ------------------------------------------------------------
-    // Load detection rules config (keep your existing config file)
+    // Load detection rules config 
     // ------------------------------------------------------------
     val conf = ConfigFactory.parseFile(new java.io.File("c:/Ares-AntiCheat-System/config/detection_rules.conf")).resolve()
 
@@ -43,9 +42,6 @@ object SparkStreamingApp {
     val roboticMinSpeed = conf.getDouble("rules.robotic-aim.minSpeed")
     val noRecoilMaxDeltaY = conf.getDouble("rules.no-recoil.maxDeltaY")
     val noRecoilMinSpeed = conf.getDouble("rules.no-recoil.minSpeed")
-
-    // NEW: ML-aware thresholds (safe defaults if not in config)
-    // You can later move these into detection_rules.conf
     val aimLinearityHigh = if (conf.hasPath("rules.ml.aimLinearityHigh")) conf.getDouble("rules.ml.aimLinearityHigh") else 0.85
     val trackingSmoothnessLow = if (conf.hasPath("rules.ml.trackingSmoothnessLow")) conf.getDouble("rules.ml.trackingSmoothnessLow") else 0.35
     val snapSpeedHigh = if (conf.hasPath("rules.ml.snapSpeedHigh")) conf.getDouble("rules.ml.snapSpeedHigh") else 400.0
@@ -63,7 +59,6 @@ object SparkStreamingApp {
       .format("kafka")
       .option("kafka.bootstrap.servers", "localhost:9092")
       .option("subscribe", "player-events")
-      // For testing, start from earliest so existing topic messages are ingested
       .option("startingOffsets", "earliest")
       .option("maxOffsetsPerTrigger", maxOffsetsPerTriggerEnv)
       .option("failOnDataLoss", "false")
@@ -76,7 +71,7 @@ object SparkStreamingApp {
     val rawJson = kafkaDF.selectExpr("CAST(value AS STRING) as json")
 
     // ------------------------------------------------------------
-    // Unified Schema (handles both old + new producer fields)
+    // Unified Schema 
     // ------------------------------------------------------------
     val schema = new StructType()
       .add("event_id", StringType)
@@ -142,11 +137,8 @@ object SparkStreamingApp {
           (unix_timestamp(col("timestamp")).cast(LongType) * lit(1000)).cast(LongType)
         )
       )
-      // If movement_speed missing, fallback to legacy speed
       .withColumn("movement_speed_norm", coalesce(col("movement_speed"), col("speed")))
       .withColumn("is_flick_norm", coalesce(col("is_flick_shot"), col("isFlick"), lit(false)))
-
-      // Ensure ML keys exist (producer usually guarantees them, but keep safe)
       .withColumn("aim_linearity_norm", coalesce(col("aim_linearity"), lit(0.55)))
       .withColumn("tracking_smoothness_norm", coalesce(col("tracking_smoothness"), lit(0.55)))
       .withColumn("aim_snap_speed_norm", coalesce(col("aim_snap_speed"), lit(0.0)))
@@ -197,7 +189,6 @@ object SparkStreamingApp {
 
     // ------------------------------------------------------------
     // Spark Rule-based Detection (ML-Aware)
-    // Spark is evidence engine, not final judge.
     // ------------------------------------------------------------
 
     // Legacy rules (keep, but they will often be weak with new generator)
@@ -277,12 +268,11 @@ object SparkStreamingApp {
         col("source"),
         col("evidence")
       )
-      // Add camelCase `playerId` and `timestamp` fields for backend compatibility
       .withColumn("playerId", col("player_id"))
       .withColumn("timestamp", col("detected_at"))
 
     // ------------------------------------------------------------
-    // events_raw: store raw event JSON + minimal indexed fields
+    // events_raw: store raw event JSON 
     // ------------------------------------------------------------
     val eventsRawStructured = baseDF.select(
       col("event_id"),
@@ -291,39 +281,23 @@ object SparkStreamingApp {
       col("event_type"),
       col("raw_json").alias("rawEvent")
     )
-    // Add fields expected by backend (camelCase key names)
     .withColumn("playerId", col("player_id"))
     .withColumn("timestamp", col("unix_timestamp"))
 
-    // ------------------------------------------------------------
-    // events_features: useful engineered features for dashboard/analysis
-    // We'll compute per-batch window features inside foreachBatch (static DF)
-    // ------------------------------------------------------------
-
-    // Checkpoint base path can be controlled via env var: SPARK_CHECKPOINT_DIR
+  
     val checkpointBase = sys.env.getOrElse("SPARK_CHECKPOINT_DIR", "checkpoint")
-
-    // MongoDB base URI shared by writers
     val baseUri = sys.env.getOrElse("MONGO_URI", "mongodb://localhost:27018")
-
     def writeToMongo(df: Dataset[Row], collectionName: String, batchId: Long): Unit = {
       val printable = s"$baseUri/ares_anticheat.$collectionName"
       println(s"Writing to MongoDB -> $printable (batch: $batchId) | rows: ${df.count()}")
-
-      // For append-only collections, prefer a per-partition insert path which
-      // is robust and avoids idempotent-upsert behaviour that can keep counts static.
-      // IMPORTANT: treat `detections` as append-only as well so counts always grow
-      // (fallback to connector previously caused static counts in some setups).
       if (collectionName == "events_raw" || collectionName == "events_features" || collectionName == "detections") {
         writeToMongoAppend(df, collectionName, batchId)
-        // Driver-side verification after append: print total + latest sample timestamp
         try {
           val client = MongoClients.create(baseUri)
           try {
             val coll = client.getDatabase("ares_anticheat").getCollection(collectionName)
             val total = coll.countDocuments()
             println(s"[verify-driver] $collectionName totalDocuments=$total")
-            // Print latest document timestamp if present to help triage
             try {
               val doc = coll.find().sort(new org.bson.Document("timestamp", -1)).first()
               if (doc != null) println(s"[verify-driver] $collectionName latest=${doc.toJson}")
@@ -335,7 +309,6 @@ object SparkStreamingApp {
       }
 
       try {
-        // If writing to `detections`, do not add an `_id` so inserts are append-only.
         val dfWithId = if (collectionName == "detections") {
           df
         } else if (df.columns.contains("_id")) {
@@ -343,7 +316,6 @@ object SparkStreamingApp {
         } else if (df.columns.contains("event_id")) {
           df.withColumn("_id", col("event_id"))
         } else {
-          // Build a safe id from whichever timestamp-like column exists; fall back to batchId
           val pidCol = coalesce(col("player_id"), col("playerId"))
           val idCol = if (df.columns.contains("detected_at")) {
             concat(pidCol, lit("-"), col("detected_at").cast(StringType))
@@ -367,7 +339,6 @@ object SparkStreamingApp {
           .save()
 
         println(s"✔️ Saved batch $batchId -> $collectionName (connector)")
-        // Driver-side quick verification: print total documents in the collection
         try {
           val client = MongoClients.create(baseUri)
           try {
@@ -382,12 +353,10 @@ object SparkStreamingApp {
         case e: Exception =>
           println(s"MongoDB connector write failed for $collectionName / batch $batchId: " + e.getMessage)
           println("Falling back to per-partition append writer to avoid stopping the stream.")
-          // Fallback: per-partition append using Mongo Java driver (executor-side)
           writeToMongoAppend(df, collectionName, batchId)
       }
     }
 
-    // Write a tiny heartbeat document so external systems can detect last processed batch
     def writeHeartbeat(batchId: Long): Unit = {
       import spark.implicits._
       val heartbeatDF = Seq((batchId, System.currentTimeMillis())).toDF("batchId", "processedAt")
@@ -413,12 +382,10 @@ object SparkStreamingApp {
           val coll = client.getDatabase("ares_anticheat").getCollection(collectionName)
           val replaceOpt = new ReplaceOptions().upsert(true)
           iter.foreach { row =>
-            // Build a Document from row values with safe conversion for nested Rows/arrays
             def toBsonValue(v: Any): AnyRef = {
               if (v == null) null
               else v match {
                 case r: org.apache.spark.sql.Row =>
-                  // Try to read nested schema via reflection to get field names
                   try {
                     val schema = r.getClass.getMethod("schema").invoke(r)
                     val fieldNamesNested = schema.getClass.getMethod("fieldNames").invoke(schema).asInstanceOf[Array[String]]
@@ -432,7 +399,7 @@ object SparkStreamingApp {
                     nestedDoc
                   } catch {
                     case _: Throwable =>
-                      // Fallback: flatten values to a list
+                      // Fallback
                       val lst = new java.util.ArrayList[AnyRef]()
                       var j = 0
                       while (j < r.length) { lst.add(toBsonValue(r.get(j))); j += 1 }
@@ -473,7 +440,6 @@ object SparkStreamingApp {
           }
         } catch {
           case e: Exception =>
-            // Log and continue; do not throw to avoid stopping streaming query
             println(s"Executor partition write error for $collectionName / batch $batchId: " + e.getMessage)
         } finally {
           client.close()
@@ -482,7 +448,6 @@ object SparkStreamingApp {
       println(s"✔️ Fallback upsert completed for batch $batchId -> $collectionName")
     }
 
-    // Per-partition append writer using the Mongo Java driver (executor-side)
     def writeToMongoAppend(df: Dataset[Row], collectionName: String, batchId: Long): Unit = {
       val fieldNames = df.schema.fieldNames
       df.foreachPartition { (iter: scala.collection.Iterator[Row]) =>
@@ -498,7 +463,6 @@ object SparkStreamingApp {
             while (i < fieldNames.length) {
               val k = fieldNames(i)
               val v = row.get(i)
-              // Convert nested structs/arrays into BSON-friendly types
               def toBsonValueLocal(vv: Any): AnyRef = {
                 if (vv == null) null
                 else vv match {
@@ -542,7 +506,6 @@ object SparkStreamingApp {
             }
             batch.add(doc)
             count += 1
-            // Flush in chunks to avoid huge memory usage
             if (batch.size() >= 500) {
               coll.insertMany(batch)
               batch.clear()
@@ -568,12 +531,9 @@ object SparkStreamingApp {
       .trigger(org.apache.spark.sql.streaming.Trigger.ProcessingTime("5 seconds"))
       .foreachBatch { (batchDF: Dataset[Row], batchId: Long) =>
         println(s"[detections] Processing batch $batchId - rows: ${batchDF.count()}")
-        // Do not force _id here - use append inserts so counts increase
         writeToMongo(batchDF, "detections", batchId)
-        // Also mirror to legacy `suspicious` collection to ensure backend compatibility
         try {
           writeToMongoAppend(batchDF, "suspicious", batchId)
-          // driver verify for suspicious as well
           try {
             val client = MongoClients.create(baseUri)
             try {
@@ -590,7 +550,7 @@ object SparkStreamingApp {
     // -----------------------------
     // Write events_raw
     // -----------------------------
-    // Write events_raw without forcing `_id` so writes are append-only
+ 
     val allEventsQuery = eventsRawStructured
       .writeStream
       .trigger(org.apache.spark.sql.streaming.Trigger.ProcessingTime("5 seconds"))
@@ -601,7 +561,7 @@ object SparkStreamingApp {
       .start()
 
     // -----------------------------
-    // Write events_features (per-batch engineered)
+    // Write events_features 
     // -----------------------------
     import org.apache.spark.sql.expressions.Window
 
@@ -650,13 +610,11 @@ object SparkStreamingApp {
           col("risk_hint")
         )
 
-        // Write features without forcing _id so inserts increase collection counts
         writeToMongo(featuresStructured, "events_features", batchId)
       }
       .option("checkpointLocation", s"$checkpointBase/features")
       .start()
 
-    // Console debugging (optional)
     val consoleQuery = detectionsStructured.writeStream
       .outputMode("append")
       .format("console")

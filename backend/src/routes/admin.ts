@@ -15,11 +15,8 @@ const persistenceManager = getPersistenceManager();
 const HISTORY_COLLECTION = 'admin_actions';
 const FLAGGED_COLLECTION = 'flagged_players';
 
-// ========================================
 // DATA MANAGEMENT
-// ========================================
 
-// POST /api/admin/clear-detections - Clear all detection data
 adminRouter.post('/clear-detections', async (_req, res, next) => {
   try {
     const db = await getDb();
@@ -47,7 +44,6 @@ adminRouter.post('/clear-detections', async (_req, res, next) => {
   }
 });
 
-// POST /api/admin/clear-events - Clear all raw events
 adminRouter.post('/clear-events', async (_req, res, next) => {
   try {
     const db = await getDb();
@@ -75,7 +71,6 @@ adminRouter.post('/clear-events', async (_req, res, next) => {
   }
 });
 
-// POST /api/admin/clear-all - Clear ALL data (nuclear option)
 adminRouter.post('/clear-all', async (_req, res, next) => {
   try {
     const db = await getDb();
@@ -112,11 +107,8 @@ adminRouter.post('/clear-all', async (_req, res, next) => {
   }
 });
 
-// ========================================
 // PLAYER MANAGEMENT
-// ========================================
 
-// POST /api/admin/players/:playerId/flag - Flag a player
 adminRouter.post('/players/:playerId/flag', async (req, res, next) => {
   try {
     const { playerId } = z.object({ playerId: z.string().min(1) }).parse(req.params);
@@ -154,7 +146,6 @@ adminRouter.post('/players/:playerId/flag', async (req, res, next) => {
   }
 });
 
-// POST /api/admin/players/:playerId/unflag - Remove flag from player
 adminRouter.post('/players/:playerId/unflag', async (req, res, next) => {
   try {
     const { playerId } = z.object({ playerId: z.string().min(1) }).parse(req.params);
@@ -183,7 +174,6 @@ adminRouter.post('/players/:playerId/unflag', async (req, res, next) => {
   }
 });
 
-// POST /api/admin/players/:playerId/ban - Ban a player
 adminRouter.post('/players/:playerId/ban', async (req, res, next) => {
   try {
     const { playerId } = z.object({ playerId: z.string().min(1) }).parse(req.params);
@@ -223,7 +213,6 @@ adminRouter.post('/players/:playerId/ban', async (req, res, next) => {
   }
 });
 
-// POST /api/admin/players/:playerId/unban - Unban a player
 adminRouter.post('/players/:playerId/unban', async (req, res, next) => {
   try {
     const { playerId } = z.object({ playerId: z.string().min(1) }).parse(req.params);
@@ -252,7 +241,6 @@ adminRouter.post('/players/:playerId/unban', async (req, res, next) => {
   }
 });
 
-// GET /api/admin/players/flagged - Get all flagged/banned players
 adminRouter.get('/players/flagged', async (_req, res, next) => {
   try {
     const db = await getDb();
@@ -272,7 +260,6 @@ adminRouter.get('/players/flagged', async (_req, res, next) => {
   }
 });
 
-// GET /api/admin/players/:playerId/status - Get player status
 adminRouter.get('/players/:playerId/status', async (req, res, next) => {
   try {
     const { playerId } = z.object({ playerId: z.string().min(1) }).parse(req.params);
@@ -299,11 +286,9 @@ adminRouter.get('/players/:playerId/status', async (req, res, next) => {
   }
 });
 
-// ========================================
-// ACTION HISTORY
-// ========================================
+ // ACTION HISTORY
 
-// GET /api/admin/history - Get admin action history
+
 adminRouter.get('/history', async (req, res, next) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50;
@@ -329,7 +314,6 @@ adminRouter.get('/history', async (req, res, next) => {
   }
 });
 
-// DELETE /api/admin/history - Clear action history
 adminRouter.delete('/history', async (_req, res, next) => {
   try {
     const db = await getDb();
@@ -338,7 +322,6 @@ adminRouter.delete('/history', async (_req, res, next) => {
     const countBefore = await historyCol.estimatedDocumentCount();
     await historyCol.deleteMany({});
 
-    // Don't log this action (would be recursive)
     res.json({
       success: true,
       message: `Cleared ${countBefore} history records`,
@@ -349,9 +332,7 @@ adminRouter.delete('/history', async (_req, res, next) => {
   }
 });
 
-// ========================================
 // SYSTEM INFO
-// ========================================
 
 // GET /api/admin/system - Get system status
 adminRouter.get('/system', async (_req, res, next) => {
@@ -396,13 +377,7 @@ adminRouter.get('/system', async (_req, res, next) => {
     next(err);
   }
 });
-// ========================================
 // BLOOM FILTER MANAGEMENT
-// ========================================
-
-/**
- * GET /api/admin/bloom-filters/stats - Get comprehensive Bloom Filter statistics
- */
 adminRouter.get('/bloom-filters/stats', async (_req, res) => {
   try {
     const deduplicatStats = deduplicationService.getStats();
@@ -419,10 +394,6 @@ adminRouter.get('/bloom-filters/stats', async (_req, res) => {
     res.status(500).json({ error: 'Failed to get bloom filter stats' });
   }
 });
-
-/**
- * POST /api/admin/bloom-filters/reset-all - Reset all Bloom Filters
- */
 adminRouter.post('/bloom-filters/reset-all', async (_req, res, next) => {
   try {
     deduplicationService.reset();
@@ -445,10 +416,6 @@ adminRouter.post('/bloom-filters/reset-all', async (_req, res, next) => {
     next(err);
   }
 });
-
-/**
- * POST /api/admin/bloom-filters/reset-deduplication - Reset deduplication filter
- */
 adminRouter.post('/bloom-filters/reset-deduplication', async (_req, res, next) => {
   try {
     deduplicationService.reset();
@@ -470,10 +437,6 @@ adminRouter.post('/bloom-filters/reset-deduplication', async (_req, res, next) =
     next(err);
   }
 });
-
-/**
- * POST /api/admin/bloom-filters/reset-suspicious - Reset suspicious player filter
- */
 adminRouter.post('/bloom-filters/reset-suspicious', async (_req, res, next) => {
   try {
     suspiciousPlayerService.reset();
@@ -495,10 +458,6 @@ adminRouter.post('/bloom-filters/reset-suspicious', async (_req, res, next) => {
     next(err);
   }
 });
-
-/**
- * POST /api/admin/bloom-filters/save - Save Bloom Filters to disk
- */
 adminRouter.post('/bloom-filters/save', async (_req, res, next) => {
   try {
     await persistenceManager.saveAll(deduplicationService, suspiciousPlayerService);
@@ -522,9 +481,6 @@ adminRouter.post('/bloom-filters/save', async (_req, res, next) => {
   }
 });
 
-/**
- * POST /api/admin/bloom-filters/load - Load Bloom Filters from disk
- */
 adminRouter.post('/bloom-filters/load', async (_req, res, next) => {
   try {
     await persistenceManager.loadAll(deduplicationService, suspiciousPlayerService);
@@ -551,9 +507,7 @@ adminRouter.post('/bloom-filters/load', async (_req, res, next) => {
   }
 });
 
-/**
- * POST /api/admin/bloom-filters/clear-storage - Clear all persisted Bloom Filter data
- */
+
 adminRouter.post('/bloom-filters/clear-storage', async (_req, res, next) => {
   try {
     await persistenceManager.clearStorage();
